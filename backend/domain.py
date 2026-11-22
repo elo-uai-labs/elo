@@ -191,8 +191,8 @@ def transition(state, command, data):
         state["case"] = state["cases"][0] if state["cases"] else None
         state["detection"] = {"status": "complete", "matches": len(state["cases"]), "rule": deepcopy(RULE),
                               "processed_contract_ids": [row["id"] for row in state["dataset"]["contracts"]]}
-        return "Indício detectado" if matches else "Análise concluída sem novos indícios", "Regra de detecção", {
-            "case_ids": [item["id"] for item in matches], "case_id": matches[0]["id"] if matches else None,
+        return "Indício detectado" if matches else "Análise concluída sem novos indícios", (required(data, "actor", 80) if data.get("actor") else "Regra de detecção"), {
+            "system_component": "Regra de detecção", "case_ids": [item["id"] for item in matches], "case_id": matches[0]["id"] if matches else None,
             "contracts_analyzed": [row["id"] for row in pending], "rule": RULE}
 
     case = selected_case(state, data.get("case_id"))
@@ -200,11 +200,12 @@ def transition(state, command, data):
     case_id = case["id"]
     linked = governance.targets(state, case)
     if command == "dossier":
-        data = {key: value for key, value in data.items() if key != "case_id"}
+        initiator = required(data, "actor", 80) if data.get("actor") else "Serviço de síntese"
+        data = {key: value for key, value in data.items() if key not in ("case_id", "actor")}
         require(case["decision"] is None, "A decisão já foi registrada.")
         revision = hashlib.sha256(serialize(data).encode("utf-8")).hexdigest()
         case["dossier"] = {**data, "revision": revision}
-        return "Dossiê registrado", "Serviço de síntese", {"case_id": case_id, **case["dossier"]}
+        return "Dossiê registrado", initiator, {"case_id": case_id, "system_component": "Serviço de síntese", **case["dossier"]}
 
     actor = required(data, "actor", 80)
     if command == "decision":
@@ -293,18 +294,20 @@ class Store:
             db.execute("BEGIN")
             return self.snapshot(db)
 
-    def apply(self, command, data):
+    def apply(self, command, data, authorize=None):
         with closing(self.connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             state = self.snapshot(db)
             require(state.pop("audit_valid"), "A integridade da trilha precisa ser verificada.")
             audit = state.pop("audit")
+            authentication = authorize(state) if authorize else {"mode": "local-demo"}
             action, actor, detail = transition(state, command, data)
             normalize(state)
             state_encoded = serialize(state)
             event = {
                 "seq": len(audit) + 1, "at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                 "action": action, "actor": actor, "details": detail,
+                "authentication": authentication,
                 "previous_hash": audit[-1]["hash"] if audit else "",
                 "state_hash": hashlib.sha256(state_encoded.encode("utf-8")).hexdigest(),
             }

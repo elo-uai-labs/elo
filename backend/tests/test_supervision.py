@@ -30,6 +30,10 @@ class SupervisionTest(unittest.TestCase):
                            "at": "2026-11-22T10:00:02+00:00"})
         state = {"audit_valid": True, "cases": [], "audit": events}
         self.assertEqual(len(summary(state)["alerts"]), 1)
+        self.assertEqual(summary(state)["identity_counts"], {"authenticated_decisions": 0, "legacy_or_declared_decisions": 5})
+        events[-1]["authentication"] = {"mode": "local-auth", "user_id": "analista"}
+        self.assertEqual(summary(state)["identity_counts"], {"authenticated_decisions": 1, "legacy_or_declared_decisions": 4})
+        self.assertEqual(summary(state)["alerts"], [], "Identidades autenticadas não herdam aceitações autodeclaradas homônimas")
         events[-1]["details"]["review"] = "adjust"
         self.assertEqual(summary(state)["alerts"], [])
         events[-1]["details"]["review"] = "accept"

@@ -21,6 +21,8 @@ const labels = {
 const view = document.querySelector('#view');
 const notice = document.querySelector('#notice');
 let state;
+let session;
+let people = [];
 let sending = false;
 let laboratoryResult;
 let supervisionResult;
@@ -38,6 +40,64 @@ function casePicker() {
     </p-select>
     <p-button variant="secondary" icon="none" type="submit">Abrir caso selecionado</p-button>
   </form>`;
+}
+
+const roleLabels = { admin: 'Administração', analyst: 'Análise', reviewer: 'Revisão', operator: 'Execução', auditor: 'Consulta e auditoria' };
+
+function sessionBanner() {
+  if (!session?.authenticated) return '';
+  return `<div class="panel session-banner"><div class="entry-content"><p-text weight="semibold">${escape(session.user.name)} · ${escape(session.user.id)}</p-text>
+    <p-text size="sm">Conta local · ${session.user.roles.map((role) => escape(roleLabels[role] || role)).join(', ')}</p-text></div>
+    <form data-endpoint="logout"><p-button variant="secondary" icon="none" type="submit">Sair</p-button></form></div>`;
+}
+
+function loginScreen() {
+  return `<div class="page"><header class="page-heading"><p-tag variant="secondary">Ambiente local · dados sintéticos</p-tag>
+    <p-heading tag="h1" size="2xl">Entrar no Elo</p-heading><p-text color="contrast-high">Use sua conta local para acessar os casos e as ações permitidas ao seu perfil.</p-text></header>
+    ${panel('Acesso identificado', `<form class="form" data-endpoint="login" data-testid="login-form">
+      <p-input-text id="login-username" name="username" label="Identificador da conta" autocomplete="username" required></p-input-text>
+      <p-input-password id="login-password" name="password" label="Senha" autocomplete="current-password" toggle required></p-input-password>
+      <div class="actions"><p-button variant="primary" icon="none" type="submit">Entrar</p-button></div>
+    </form><p-text size="sm" color="contrast-high">Contas provisionadas pelo administrador deste ambiente. Esta autenticação local não representa integração com o provedor corporativo da CAIXA.</p-text>`)}
+  </div>`;
+}
+
+function permissionReason(endpoint, form) {
+  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'logout'].includes(endpoint)) return '';
+  const user = session.user;
+  if (!user) return 'Entre para continuar.';
+  const roles = user.roles;
+  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action'];
+  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close'];
+  const permitted = roles.includes('admin') || (analyst.includes(endpoint) && roles.includes('analyst')) ||
+    (reviewer.includes(endpoint) && roles.includes('reviewer')) || (endpoint === 'action/update' && roles.some((role) => ['operator', 'analyst'].includes(role)));
+  if (!permitted) return 'Seu perfil permite consultar esta área, mas não executar esta ação.';
+  if (endpoint === 'impact' && state.case?.decision?.actor === user.id) return 'A avaliação de impacto exige outro revisor, diferente de quem qualificou o caso.';
+  const id = form.querySelector('input[name=id]')?.value;
+  const action = state.actions.find((item) => item.id === id);
+  if (endpoint === 'action/update' && action?.owner !== user.id) return 'Somente o responsável atribuído ao plano pode registrar a execução.';
+  if (endpoint === 'action/close' && action?.closure_request?.actor === user.id) return 'A revisão do encerramento exige outra pessoa.';
+  return '';
+}
+
+async function loadWorkspace() {
+  const [nextState, directory] = await Promise.all([
+    read(`/api/state${selectedCaseId ? `?case_id=${encodeURIComponent(selectedCaseId)}` : ''}`),
+    session.auth_required ? read('/api/people') : Promise.resolve({ people: [] }),
+  ]);
+  state = nextState;
+  people = directory.people;
+}
+
+function expiredSession(error) {
+  if (error.status !== 401 || !session?.auth_required) return false;
+  session = { ...session, authenticated: false, user: null };
+  state = undefined;
+  people = [];
+  supervisionResult = undefined;
+  laboratoryResult = undefined;
+  render();
+  return true;
 }
 
 function escape(value) {
@@ -71,6 +131,8 @@ function panel(title, content, extra = '') {
 }
 
 function field(id, name, label, type = 'text', value = '') {
+  if (name === 'actor' && session?.authenticated) return `${hidden('actor', session.user.id)}<p-text size="sm">${escape(label)}: ${escape(session.user.name)} · ${escape(session.user.id)} (conta autenticada)</p-text>`;
+  if (name === 'owner' && session?.auth_required) return selectField(id, name, label, people.filter((person) => person.roles.some((role) => ['operator', 'analyst', 'admin'].includes(role))).map((person) => [person.id, `${person.name} · ${person.id}`]), value);
   const tag = type === 'date' ? 'p-input-date' : 'p-input-text';
   return `<${tag} id="${id}" name="${name}" label="${label}" value="${escape(value)}" required></${tag}>`;
 }
@@ -234,6 +296,7 @@ function supervisionPanel() {
   return panel('Indicadores de supervisão', `<form class="form" data-endpoint="supervision/read"><div class="actions"><p-button variant="secondary" icon="none" type="submit">Atualizar indicadores de supervisão</p-button></div></form>
     ${result ? `<div class="stack" data-testid="supervision-summary"><p-text size="sm">${escape(result.methodology)}</p-text><p-text size="sm" color="contrast-high">${escape(result.identity_scope)}</p-text>
       <p-text>${result.pending} revisão(ões) pendente(s) em ${result.total_cases} caso(s).</p-text>
+      ${result.identity_counts ? `<p-text size="sm">Decisões com identidade autenticada: ${result.identity_counts.authenticated_decisions} · Decisões legadas ou autodeclaradas: ${result.identity_counts.legacy_or_declared_decisions}</p-text>` : ''}
       ${result.groups.map((group) => `<div class="decision-block"><p-heading tag="h3" size="md">${group.mode === 'real' ? 'IA real' : 'Síntese local'}</p-heading>
         <p-text>Concordância: ${ratio(group.agreement_rate)} · ${group.accept}/${group.reviewed} revisões</p-text>
         <p-text size="sm">Aceitações ${group.accept} · Ajustes ${group.adjust} · Rejeições ${group.reject}</p-text>
@@ -452,7 +515,7 @@ function actionCard(item) {
     </form></p-accordion>`;
   const close = item.status !== 'closure_requested' ? '' : `<form class="form" data-endpoint="action/close" data-testid="close-${escape(item.id)}">
     ${identity}<p-text weight="semibold">Revisão do encerramento</p-text>
-    <p-text size="sm">Solicitado por ${escape(item.closure_request?.actor)}. O revisor deve ser outra pessoa. Identidades autodeclaradas nesta demonstração local.</p-text>
+    <p-text size="sm">Solicitado por ${escape(item.closure_request?.actor)}. O revisor deve ser outra pessoa. ${session?.authenticated ? 'Identidades vinculadas às contas locais autenticadas.' : 'Identidades autodeclaradas nesta demonstração local.'}</p-text>
     ${selectField(`${prefix}-close-outcome`, 'outcome', 'Decisão de encerramento', [['approved', 'Aprovar encerramento'], ['rejected', 'Devolver para execução']])}
     ${field(`${prefix}-close-actor`, 'actor', 'Revisor do encerramento')}${paragraph(`${prefix}-close-reason`, 'reason', 'Justificativa da revisão')}
     <div class="actions"><p-button variant="primary" icon="none" type="submit">Registrar revisão de encerramento</p-button></div>
@@ -472,6 +535,7 @@ function auditEvent(event) {
   return `<p-text-list-item data-testid="audit-event"><div class="entry-content">
     <p-text weight="semibold">${escape(event.seq)} · ${format(event.action)}</p-text>
     <p-text color="contrast-high" size="sm">${escape(event.actor)} · ${escape(timestamp)}</p-text>
+    <p-text color="contrast-high" size="sm">${event.authentication?.mode === 'local-auth' ? 'Identidade local autenticada' : 'Registro local sem identidade autenticada'}</p-text>
     <p-accordion><p-heading slot="summary" tag="h3" size="sm">Detalhes e hash</p-heading>
       <p-text class="technical" size="sm">${escape(JSON.stringify(event.details, null, 2))}</p-text>
       <p-text class="technical" color="contrast-high" size="sm">${escape(event.hash)}</p-text>
@@ -504,12 +568,24 @@ function governance() {
 }
 
 function render() {
+  if (session?.auth_required && !session.authenticated) {
+    document.title = 'Entrar | Elo';
+    view.innerHTML = loginScreen();
+    view.setAttribute('aria-busy', String(sending));
+    return;
+  }
   const current = location.hash.slice(1);
   const route = Object.hasOwn(views, current) ? current : 'visao';
   const pages = { visao: overview, inteligencia: intelligence, impactos: impacts, governanca: governance };
   document.title = `${views[route]} | Elo`;
   document.querySelector('p-tabs-bar').setAttribute('active-tab-index', Object.keys(views).indexOf(route));
-  if (state) view.innerHTML = `<div class="page">${pages[route]()}</div>`;
+  if (state) {
+    view.innerHTML = `<div class="page">${sessionBanner()}${pages[route]()}</div>`;
+    view.querySelectorAll('form[data-endpoint]').forEach((form) => {
+      const reason = permissionReason(form.getAttribute('data-endpoint'), form);
+      if (reason) form.outerHTML = `<p-text size="sm" color="contrast-high" data-testid="permission-notice">${escape(reason)}</p-text>`;
+    });
+  }
   view.setAttribute('aria-busy', String(sending));
 }
 
@@ -519,7 +595,11 @@ async function read(url, payload) {
   } : {};
   const response = await fetch(url, options);
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Não foi possível concluir a operação.');
+  if (!response.ok) {
+    const error = new Error(result.error || 'Não foi possível concluir a operação.');
+    error.status = response.status;
+    throw error;
+  }
   return result;
 }
 
@@ -569,7 +649,16 @@ view.addEventListener('submit', async (event) => {
       payload.confirmed = payload.confirmed === 'true';
       Object.keys(payload).filter((key) => key.startsWith('answer_')).forEach((key) => delete payload[key]);
     }
-    if (endpoint === 'laboratory/run' || endpoint === 'supervision/read') {
+    if (endpoint === 'login') {
+      session = await read('/api/login', payload);
+      await loadWorkspace();
+    } else if (endpoint === 'logout') {
+      session = await read('/api/logout', {});
+      state = undefined;
+      people = [];
+      supervisionResult = undefined;
+      laboratoryResult = undefined;
+    } else if (endpoint === 'laboratory/run' || endpoint === 'supervision/read') {
       if (endpoint === 'laboratory/run') laboratoryResult = await read('/api/laboratory');
       else supervisionResult = await read('/api/supervision');
     } else if (endpoint === 'select-case') {
@@ -583,16 +672,17 @@ view.addEventListener('submit', async (event) => {
       state = await read(`/api/${endpoint}`, payload);
       supervisionResult = undefined;
     }
-    selectedCaseId = state.case?.id || null;
+    if (state) selectedCaseId = state.case?.id || null;
     const url = new URL(location.href);
     if (selectedCaseId) url.searchParams.set('case_id', selectedCaseId);
     else url.searchParams.delete('case_id');
     history.replaceState(null, '', url);
     sending = false;
-    announce(endpoint === 'select-case' ? 'Caso selecionado.' : endpoint === 'laboratory/run' || endpoint === 'supervision/read' ? 'Consulta concluída.' : 'Registro atualizado.');
+    announce(endpoint === 'login' ? 'Sessão iniciada.' : endpoint === 'logout' ? 'Sessão encerrada.' : endpoint === 'select-case' ? 'Caso selecionado.' : endpoint === 'laboratory/run' || endpoint === 'supervision/read' ? 'Consulta concluída.' : 'Registro atualizado.');
     render();
     view.querySelector('p-heading[tag=h1]')?.focus({ preventScroll: true });
   } catch (error) {
+    if (form.getAttribute('data-endpoint') !== 'login') expiredSession(error);
     announce(error.message, true);
   } finally {
     sending = false;
@@ -611,11 +701,12 @@ window.addEventListener('hashchange', () => {
 
 async function initialize() {
   try {
-    state = await read(`/api/state${selectedCaseId ? `?case_id=${encodeURIComponent(selectedCaseId)}` : ''}`);
+    session = await read('/api/session');
+    if (!session.auth_required || session.authenticated) await loadWorkspace();
     render();
   } catch (error) {
+    if (!expiredSession(error)) view.innerHTML = '<p-text color="contrast-high">Recarregue a página para tentar se conectar novamente.</p-text>';
     announce(error.message, true);
-    view.innerHTML = '<p-text color="contrast-high">Recarregue a página para tentar se conectar novamente.</p-text>';
     view.setAttribute('aria-busy', 'false');
   }
 }

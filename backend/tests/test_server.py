@@ -21,7 +21,7 @@ class ServerTest(unittest.TestCase):
         (self.dist / "index.html").write_text('<!doctype html><script>window.loader = true;</script><p-text>Elo</p-text>')
         (self.root / "secret.txt").write_text("do-not-serve")
         self.store = Store(self.root / "state.sqlite3")
-        self.server = EloServer(("127.0.0.1", 0), self.store, self.dist, 5173)
+        self.server = EloServer(("127.0.0.1", 0), self.store, self.dist, 5173, access_service=None)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.addCleanup(self.shutdown)

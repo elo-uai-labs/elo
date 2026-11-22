@@ -332,7 +332,7 @@ async function runExpanded(browser, pageErrors) {
   const exportPath = path.join(output, 'audit-package.json');
   await download.saveAs(exportPath);
   const packageData = JSON.parse(fs.readFileSync(exportPath, 'utf8'));
-  assert.equal(packageData.format, 'elo-audit-v1');
+  assert.ok(['elo-audit-v1', 'elo-audit-v2'].includes(packageData.format));
   assert.equal(packageData.state.cases.length, 3);
   assert.equal(packageData.manifest.event_count, afterNoMatch.audit.length);
   const { spawnSync } = require('node:child_process');

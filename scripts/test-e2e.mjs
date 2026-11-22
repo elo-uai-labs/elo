@@ -15,7 +15,7 @@ await once(probe, 'listening');
 const port = probe.address().port;
 await new Promise((resolve) => probe.close(resolve));
 const url = `http://127.0.0.1:${port}`;
-const env = { ...process.env, ELO_API_PORT: String(port), ELO_DB: path.join(temporary, 'test.sqlite3'), ELO_URL: url };
+const env = { ...process.env, ELO_AUTH_USERS_FILE: '', ELO_API_PORT: String(port), ELO_DB: path.join(temporary, 'test.sqlite3'), ELO_URL: url };
 let server;
 let serverLogs = '';
 
@@ -53,11 +53,15 @@ try {
   assert.deepEqual(after, before, 'Estado deve persistir após reiniciar o processo');
   assert.equal(after.audit_valid, true);
   await mkdir(path.join(root, 'output/validation'), { recursive: true });
-  await writeFile(path.join(root, 'output/validation/result.json'), JSON.stringify({
+  const result = JSON.stringify({
     date: new Date().toISOString(), designSystem: '4.10.1', dossierMode: after.case.dossier.mode,
     model: after.case.dossier.model, caseId: after.case.id, auditEvents: after.audit.length,
     auditValid: after.audit_valid, restartPersistence: true, desktop: true, mobile: true,
-  }, null, 2));
+    promptVersion: after.case.dossier.prompt_version, cases: after.cases.length,
+    risks: after.risks.length, assessments: after.assessments.length,
+  }, null, 2);
+  await writeFile(path.join(root, 'output/validation/result.json'), result);
+  await writeFile(path.join(root, `output/validation/result-${after.case.dossier.mode}.json`), result);
   console.log('Build, jornada completa, Porsche Next, celular, indicadores e persistência após reiniciar: OK.');
 } catch (error) {
   if (serverLogs) console.error('Diagnóstico do servidor isolado:\n' + serverLogs);

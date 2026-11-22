@@ -104,7 +104,7 @@ body { margin: 0; min-block-size: 100vh; }
 #notice { margin-block-end: var(--p-spacing-static-md); }
 
 /* The form-associated elements need to hydrate before values are available. */
-form:has(:is(p-select, p-input-text, p-input-date, p-textarea, p-checkbox, p-input-number):not(.hydrated)) p-button { visibility: hidden; }
+form:has(:is(p-select, p-input-text, p-input-date, p-textarea, p-checkbox, p-input-number, p-input-password):not(.hydrated)) p-button { visibility: hidden; }
 
 @media (max-width: 68em) {
   .metric-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -132,3 +132,5 @@ form:has(:is(p-select, p-input-text, p-input-date, p-textarea, p-checkbox, p-inp
 @media (max-width: 35em) {
   .case-picker { grid-template-columns: minmax(0, 1fr); }
 }
+
+.session-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--p-spacing-static-sm); }
