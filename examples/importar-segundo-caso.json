@@ -1,0 +1,25 @@
+{
+  "employees": [
+    {
+      "id": "EMP-DEMO2",
+      "name": "Pessoa Exemplo 2 (fictícia)",
+      "role": "Aprovação sintética",
+      "contact_code": "FICT-DEMO2"
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "FOR-DEMO2",
+      "name": "Fornecedor Exemplo 2 (fictício)",
+      "contact_code": "FICT-DEMO2"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "CTR-DEMO2",
+      "title": "Contrato sintético adicional",
+      "approver_id": "EMP-DEMO2",
+      "supplier_id": "FOR-DEMO2"
+    }
+  ]
+}

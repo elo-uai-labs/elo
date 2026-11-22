@@ -1,0 +1,14 @@
+{
+  "employees": [
+    {"id": "EMP-014", "name": "Marina Costa (fictícia)", "role": "Aprovação de contratos", "contact_code": "FICT-801"},
+    {"id": "EMP-027", "name": "Rafael Prado (fictício)", "role": "Compras", "contact_code": "FICT-902"}
+  ],
+  "suppliers": [
+    {"id": "FOR-031", "name": "Horizonte Serviços (fictícia)", "contact_code": "FICT-801"},
+    {"id": "FOR-042", "name": "Ipê Tecnologia (fictícia)", "contact_code": "FICT-703"}
+  ],
+  "contracts": [
+    {"id": "CTR-1042", "supplier_id": "FOR-031", "approver_id": "EMP-014", "title": "Serviços de manutenção"},
+    {"id": "CTR-1091", "supplier_id": "FOR-042", "approver_id": "EMP-027", "title": "Suporte a equipamentos"}
+  ]
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elo | Radar de Integridade</title>
+  <meta name="description" content="Elo: detecção de indícios, revisão humana, riscos e governança com rastreabilidade.">
+</head>
+<body>
+  <div class="skip"><p-link-pure href="#conteudo" icon="none">Ir para o conteúdo</p-link-pure></div>
+  <header class="app-header">
+    <div class="frame masthead">
+      <div class="identity">
+        <p-link-pure href="#visao" icon="none"><p-text tag="span" size="xl" weight="bold">Elo</p-text></p-link-pure>
+        <p-text class="product-name" size="sm" color="contrast-high">Radar de Integridade</p-text>
+      </div>
+      <p-tag variant="secondary">Dados sintéticos</p-tag>
+    </div>
+    <nav class="frame module-navigation" aria-label="Módulos do Elo">
+      <p-tabs-bar active-tab-index="0">
+        <a href="#visao">Visão geral</a>
+        <a href="#inteligencia">Inteligência</a>
+        <a href="#impactos">Risco e maturidade</a>
+        <a href="#governanca">Plano e auditoria</a>
+      </p-tabs-bar>
+    </nav>
+    <p-divider></p-divider>
+  </header>
+  <main class="frame content" id="conteudo" tabindex="-1">
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <div id="view" aria-busy="true"><p-spinner aria-label="Carregando"></p-spinner></div>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

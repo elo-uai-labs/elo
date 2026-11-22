@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+data/
+.local/
+output/
+__pycache__/
+*.pyc
+*.sqlite3*
+.env
+.env.*
+!.env.example

@@ -1,0 +1,12 @@
+{
+  "employees": [],
+  "suppliers": [],
+  "contracts": [
+    {
+      "id": "CTR-SEMINDICIO",
+      "title": "Contrato sintético sem coincidência",
+      "approver_id": "EMP-027",
+      "supplier_id": "FOR-042"
+    }
+  ]
+}
