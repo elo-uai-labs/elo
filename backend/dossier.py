@@ -1,7 +1,9 @@
 """Summarize synthetic evidence without granting decision authority."""
 
 import json
+import logging
 import os
+import re
 import subprocess
 import time
 from urllib.error import URLError
@@ -9,10 +11,10 @@ from urllib.request import Request, urlopen
 
 from domain import WorkflowError
 
-PROMPT_VERSION = "elo-dossier-v2"
+PROMPT_VERSION = "elo-dossier-v3"
 INSTRUCTIONS = (
     "Redija uma síntese curta de evidências sintéticas de um possível conflito de interesses. "
-    "Use apenas as evidências recebidas e apenas IDs declarados. Cite os IDs junto às afirmações. "
+    "Use apenas as evidências recebidas. Associe a cada afirmação os IDs de suas fontes em source_ids. "
     "Explique a coincidência e sua limitação, e sugira somente uma verificação humana. "
     "Nunca atribua culpa, confirme uma irregularidade, proponha penalidade ou decida o caso."
 )
@@ -23,20 +25,40 @@ def configured():
 
 
 def verified_dossier(output, model, ids):
-    references = output["source_ids"]
-    text = output["text"].strip()
-    if not 0 < len(text) <= 1800 or not isinstance(references, list) or not references:
+    claims = output["claims"]
+    limitations = output["limitations"].strip()
+    suggestion = output["suggestion"].strip()
+    if not isinstance(claims, list) or not 1 <= len(claims) <= 6 or not limitations or not suggestion:
         raise ValueError("Invalid dossier shape")
-    if any(not isinstance(ref, str) or ref not in ids or ref not in text for ref in references):
-        raise ValueError("Invalid source IDs")
-    return {"text": text, "source_ids": list(dict.fromkeys(references)), "mode": "real", "model": model, "prompt_version": PROMPT_VERSION}
+    clean = []
+    references = []
+    for claim in claims:
+        text = claim["text"].strip()
+        sources = claim["source_ids"]
+        if not text or not isinstance(sources, list) or not sources:
+            raise ValueError("Each factual claim needs sources")
+        if any(not isinstance(ref, str) or ref not in ids for ref in sources):
+            raise ValueError("Invalid claim source IDs")
+        mentioned = set(re.findall(r"\b(?:CTR|FOR|EMP)-[A-Za-z0-9_-]+", text))
+        if not mentioned.issubset(ids):
+            raise ValueError("Every mentioned record must exist in the supplied evidence")
+        clean.append({"text": text, "source_ids": list(dict.fromkeys(sources))})
+        references.extend(sources)
+    text = " ".join([claim["text"] for claim in clean] + [limitations, suggestion])
+    if len(text) > 2400 or not isinstance(model, str) or not model.strip():
+        raise ValueError("Invalid dossier size or model")
+    return {"text": text, "source_ids": list(dict.fromkeys(references)), "claims": clean,
+            "limitations": limitations, "suggestion": suggestion,
+            "mode": "real", "model": model, "prompt_version": PROMPT_VERSION}
 
 
 def generate_on_device(binary, evidence, ids):
     citation_contract = (
         " Os únicos IDs de fontes permitidos são: " + ", ".join(ids) + ". "
-        "Cada identificador listado em source_ids deve aparecer literalmente no texto, junto à afirmação correspondente. "
-        "Não substitua identificadores pelos nomes dos registros."
+        "Retorne de uma a seis afirmações factuais em claims, cada uma com text e source_ids. "
+        "source_ids deve conter somente IDs recebidos que sustentam a mesma afirmação; a interface os mostra junto ao texto. "
+        "Separe limitations (limitações da análise) e suggestion (próxima verificação humana). "
+        "Não use nomes de pessoas ou tabelas como identificadores de fonte."
     )
     payload = {"instructions": INSTRUCTIONS + citation_contract, "evidence": json.dumps(evidence, ensure_ascii=False)}
     environment = {name: os.environ[name] for name in ("HOME", "PATH", "TMPDIR", "LANG", "LC_ALL") if name in os.environ}
@@ -57,10 +79,11 @@ def generate_on_device(binary, evidence, ids):
                 # never patch its factual text or silently drop invalid references.
                 payload["instructions"] += (
                     " Sua resposta anterior foi rejeitada pela validação de formato ou referências. "
-                    "Gere uma nova síntese curta com os IDs literais junto às afirmações e declare somente "
-                    "fontes existentes que estejam explicitamente citadas no texto."
+                    "Gere uma nova síntese curta com source_ids próprios para cada afirmação e declare somente "
+                    "identificadores de fontes existentes recebidas na entrada."
                 )
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError) as error:
+        logging.getLogger(__name__).warning("Falha do dossiê Apple: %s", str(error) if isinstance(error, ValueError) else type(error).__name__)
         raise WorkflowError("A síntese por IA no dispositivo não foi concluída. Confira o modelo local e tente novamente.", 502) from error
 
 
@@ -68,26 +91,36 @@ def generate(evidence, mode):
     ids = [item["id"] for item in evidence]
     if mode == "local":
         contract, supplier, employee = ids
-        return {
-            "mode": "local", "model": "regra-local", "prompt_version": PROMPT_VERSION, "source_ids": ids,
-            "text": f"O contrato {contract} relaciona o fornecedor {supplier} ao empregado {employee} como aprovador. "
-            f"Os registros {supplier} e {employee} têm o mesmo código cadastral. A coincidência isolada não comprova "
-            "irregularidade. Sugestão: verificar a origem e a validade do vínculo antes de concluir a análise.",
+        output = {
+            "claims": [
+                {"text": f"O contrato {contract} relaciona o fornecedor {supplier} ao empregado {employee} como aprovador.", "source_ids": ids},
+                {"text": f"Os registros {supplier} e {employee} têm o mesmo código cadastral.", "source_ids": [supplier, employee]},
+            ],
+            "limitations": "A coincidência isolada não comprova irregularidade.",
+            "suggestion": "Sugestão: verificar a origem e a validade do vínculo antes de concluir a análise.",
         }
+        return {**verified_dossier(output, "regra-local", ids), "mode": "local"}
+
 
     if binary := os.getenv("ELO_ON_DEVICE_BIN"):
         return generate_on_device(binary, evidence, ids)
     if not configured():
         raise WorkflowError("Configure o modelo local ou OPENAI_API_KEY e ELO_MODEL para usar IA real.", 503)
     schema = {
-        "type": "object", "additionalProperties": False, "required": ["text", "source_ids"],
-        "properties": {"text": {"type": "string"}, "source_ids": {"type": "array", "items": {"type": "string", "enum": ids}}},
+        "type": "object", "additionalProperties": False, "required": ["claims", "limitations", "suggestion"],
+        "properties": {
+            "claims": {"type": "array", "items": {
+                "type": "object", "additionalProperties": False, "required": ["text", "source_ids"],
+                "properties": {"text": {"type": "string"}, "source_ids": {"type": "array", "items": {"type": "string", "enum": ids}}}}},
+            "limitations": {"type": "string"}, "suggestion": {"type": "string"},
+        },
     }
+
     request = Request(
         "https://api.openai.com/v1/responses",
         data=json.dumps({
             "model": os.environ["ELO_MODEL"], "store": False, "instructions": INSTRUCTIONS,
-            "input": json.dumps(evidence, ensure_ascii=False), "max_output_tokens": 1200,
+            "input": json.dumps(evidence, ensure_ascii=False), "max_output_tokens": 1800,
             "text": {"format": {"type": "json_schema", "name": "dossier", "strict": True, "schema": schema}},
         }).encode(),
         headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"]},

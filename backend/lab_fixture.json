@@ -1,0 +1,43 @@
+{
+  "id": "elo-integridade-lab",
+  "version": "1.0.0",
+  "synthetic": true,
+  "description": "Organização fictícia com sinais cadastrais plantados. O gabarito identifica sinais esperados, nunca culpa ou irregularidade comprovada.",
+  "expected_rule": {"id": "contact-code-match", "version": "1"},
+  "dataset": {
+    "employees": [
+      {"id": "EMP-LAB-A", "name": "Pessoa Alfa fictícia", "role": "Aprovador", "contact_code": "FICT-LAB-A"},
+      {"id": "EMP-LAB-B", "name": "Pessoa Beta fictícia", "role": "Aprovador", "contact_code": "FICT-LAB-B"},
+      {"id": "EMP-LAB-C", "name": "Pessoa Gama fictícia", "role": "Aprovador", "contact_code": ""},
+      {"id": "EMP-LAB-D", "name": "Pessoa Delta fictícia", "role": "Cadastro", "contact_code": "FICT-LAB-D"}
+    ],
+    "suppliers": [
+      {"id": "FOR-LAB-A", "name": "Fornecedor Alfa fictício", "contact_code": "FICT-LAB-A"},
+      {"id": "FOR-LAB-B", "name": "Fornecedor Beta fictício", "contact_code": "FICT-LAB-B"},
+      {"id": "FOR-LAB-C", "name": "Fornecedor Gama fictício", "contact_code": ""},
+      {"id": "FOR-LAB-D", "name": "Fornecedor Delta fictício", "contact_code": "FICT-LAB-D"},
+      {"id": "FOR-LAB-E", "name": "Fornecedor Épsilon fictício", "contact_code": "FICT-LAB-E"}
+    ],
+    "contracts": [
+      {"id": "CTR-LAB-POS-A", "title": "Serviço sintético Alfa", "supplier_id": "FOR-LAB-A", "approver_id": "EMP-LAB-A"},
+      {"id": "CTR-LAB-POS-B", "title": "Serviço sintético Beta", "supplier_id": "FOR-LAB-B", "approver_id": "EMP-LAB-B"},
+      {"id": "CTR-LAB-EMPTY-BOTH", "title": "Dois códigos ausentes", "supplier_id": "FOR-LAB-C", "approver_id": "EMP-LAB-C"},
+      {"id": "CTR-LAB-NONAPPROVER", "title": "Vínculo com pessoa que não aprova", "supplier_id": "FOR-LAB-D", "approver_id": "EMP-LAB-A"},
+      {"id": "CTR-LAB-DIFFERENT", "title": "Códigos distintos", "supplier_id": "FOR-LAB-E", "approver_id": "EMP-LAB-B"},
+      {"id": "CTR-LAB-EMPTY-EMP", "title": "Código do aprovador ausente", "supplier_id": "FOR-LAB-A", "approver_id": "EMP-LAB-C"},
+      {"id": "CTR-LAB-EMPTY-SUP", "title": "Código do fornecedor ausente", "supplier_id": "FOR-LAB-C", "approver_id": "EMP-LAB-A"},
+      {"id": "CTR-LAB-OTHER-APPROVER", "title": "Mesmo fornecedor com outro aprovador", "supplier_id": "FOR-LAB-A", "approver_id": "EMP-LAB-B"}
+    ]
+  },
+  "expected_contract_ids": ["CTR-LAB-POS-A", "CTR-LAB-POS-B"],
+  "scenarios": [
+    {"contract_id": "CTR-LAB-POS-A", "scenario": "Coincidência do aprovador Alfa", "reason": "Sinal positivo plantado entre fornecedor e aprovador deste contrato."},
+    {"contract_id": "CTR-LAB-POS-B", "scenario": "Coincidência do aprovador Beta", "reason": "Segundo sinal positivo independente plantado no gabarito."},
+    {"contract_id": "CTR-LAB-EMPTY-BOTH", "scenario": "Códigos vazios", "reason": "Ausência de cadastro em ambos os registros não deve virar sinal positivo."},
+    {"contract_id": "CTR-LAB-NONAPPROVER", "scenario": "Empregado diferente do aprovador", "reason": "A pessoa Delta compartilha o código, mas não aprova este contrato; a regra avaliada exige vínculo com o aprovador."},
+    {"contract_id": "CTR-LAB-DIFFERENT", "scenario": "Códigos distintos", "reason": "Controle negativo sem coincidência cadastral plantada."},
+    {"contract_id": "CTR-LAB-EMPTY-EMP", "scenario": "Código do aprovador vazio", "reason": "Sem código do aprovador, a regra não deve produzir indício."},
+    {"contract_id": "CTR-LAB-EMPTY-SUP", "scenario": "Código do fornecedor vazio", "reason": "Sem código do fornecedor, a regra não deve produzir indício."},
+    {"contract_id": "CTR-LAB-OTHER-APPROVER", "scenario": "Fornecedor reutilizado", "reason": "Um sinal em outro contrato do fornecedor não torna este contrato positivo."}
+  ]
+}

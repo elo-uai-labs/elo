@@ -11,6 +11,14 @@ const baseUrl = process.env.ELO_URL || 'http://127.0.0.1:8000';
 const reason = 'Registrar a fragilidade cadastral e verificar a origem com a área responsável.';
 const aiMode = process.env.ELO_TEST_DOSSIER || 'local';
 
+async function settleMotion(page) {
+  await page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await Promise.all(document.getAnimations().filter((animation) => Number.isFinite(animation.effect?.getTiming().iterations))
+      .map((animation) => animation.finished.catch(() => {})));
+  });
+}
+
 async function choose(control, label) {
   await control.getByRole('combobox').click();
   await control.getByRole('option', { name: label, exact: true }).click();
@@ -107,6 +115,7 @@ async function runDesktop(browser, pageErrors) {
   await verifyTypography(page, 'p-heading[tag=h1]', 'h1');
   await verifyTypography(page, 'main p-text.hydrated', 'p, span');
   await verifyTypography(page, '.metric-value.hydrated', 'p, span');
+  await settleMotion(page);
   await page.screenshot({ path: path.join(output, 'desktop-visao.png'), fullPage: true });
   await page.keyboard.press('Tab');
   await page.getByRole('link', { name: 'Ir para o conteúdo' }).press('Enter');
@@ -132,9 +141,18 @@ async function runDesktop(browser, pageErrors) {
     throw new Error(`Dossiê retornou HTTP ${completedDossier.status()}: ${await completedDossier.text()}`);
   }
   await page.getByTestId('dossier').waitFor();
+  const savedDossier = (await (await page.request.get(`${baseUrl}/api/state`)).json()).case.dossier;
+  assert.ok(savedDossier.claims.length > 0);
+  const renderedClaims = await page.getByTestId('dossier').locator('p-text-list-item').allTextContents();
+  assert.equal(renderedClaims.length, savedDossier.claims.length);
+  savedDossier.claims.forEach((claim, index) => {
+    assert.ok(renderedClaims[index].includes(claim.text));
+    claim.source_ids.forEach((id) => assert.ok(renderedClaims[index].includes(id), 'Cada afirmação deve exibir suas próprias fontes adjacentes'));
+  });
   await page.getByText(aiMode === 'real' ? /^IA real · / : 'Síntese local baseada nas evidências').waitFor();
   await verifyDesignSystem(page, ['p-select', 'p-select-option', 'p-input-text', 'p-textarea', 'p-button', 'p-inline-notification']);
   await verifyTypography(page, '#decision-actor', 'label');
+  await settleMotion(page);
   await page.screenshot({ path: path.join(output, 'desktop-inteligencia.png'), fullPage: true });
 
   await choose(page.locator('#decision-outcome'), 'Registrar fragilidade');
@@ -153,6 +171,7 @@ async function runDesktop(browser, pageErrors) {
   await verifyDesignSystem(page, ['p-text-list', 'p-link-pure', 'p-tag', 'p-select', 'p-button']);
   await decideImpact(page, 'risk', 'approved', 'Reavaliar a exposição ao vínculo relatado.');
   await decideImpact(page, 'maturity', 'rejected', 'A amostra ainda não permite revisar a dimensão.');
+  await settleMotion(page);
   await page.screenshot({ path: path.join(output, 'desktop-impactos.png'), fullPage: true });
 
   await page.getByRole('link', { name: 'Abrir plano e auditoria' }).click();
@@ -170,10 +189,18 @@ async function runDesktop(browser, pageErrors) {
   await action.getByRole('button', { name: 'Salvar andamento' }).click();
   await action.locator('.badge').getByText('Em andamento', { exact: true }).waitFor();
   await action.getByText('Atualizar andamento', { exact: true }).click();
-  await choose(action.locator('p-select[name=status]'), 'Concluído');
+  await choose(action.locator('p-select[name=status]'), 'Aguardando aprovação de encerramento');
   await action.getByLabel('Quem está registrando').fill('Marco Demo');
   await action.getByLabel('Evidência de execução').fill('Ata sintética DEMO-01.');
   await action.getByRole('button', { name: 'Salvar andamento' }).click();
+  await action.locator('.badge').getByText('Aguardando aprovação de encerramento', { exact: true }).waitFor();
+  await choose(action.locator('p-select[name=outcome]'), 'Aprovar encerramento');
+  await action.getByLabel('Revisor do encerramento').fill('Marco Demo');
+  await action.getByLabel('Justificativa da revisão').fill('Evidência de execução conferida.');
+  await action.getByRole('button', { name: 'Registrar revisão de encerramento' }).click();
+  await page.getByText('A revisão exige uma pessoa diferente de quem solicitou o encerramento.', { exact: true }).waitFor();
+  await action.getByLabel('Revisor do encerramento').fill('Rita Demo');
+  await action.getByRole('button', { name: 'Registrar revisão de encerramento' }).click();
   await action.locator('.badge').getByText('Concluído', { exact: true }).waitFor();
   await action.getByText('Evidência: Ata sintética DEMO-01.', { exact: true }).waitFor();
 
@@ -186,6 +213,7 @@ async function runDesktop(browser, pageErrors) {
 
   await page.reload();
   await action.locator('.badge').getByText('Concluído', { exact: true }).waitFor();
+  await settleMotion(page);
   await page.screenshot({ path: path.join(output, 'desktop-governanca.png'), fullPage: true });
   await page.goto(`${baseUrl}/#visao`);
   await page.getByRole('heading', { name: 'Visão geral', exact: true }).waitFor();
@@ -214,7 +242,8 @@ async function runMobile(browser, pageErrors) {
     assert.equal(await navigation.locator('p-tabs-bar').evaluate((tabBar) => tabBar.activeTabIndex), index);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${heading} tem rolagem horizontal`);
     await verifyTypography(page, 'p-heading[tag=h1]', 'h1');
-    await page.screenshot({ path: path.join(output, `mobile-${index}.png`), fullPage: true });
+    await settleMotion(page);
+  await page.screenshot({ path: path.join(output, `mobile-${index}.png`), fullPage: true });
   }
   await page.getByTestId('supervision').getByText(reason, { exact: true }).waitFor();
   await page.close();
@@ -291,6 +320,7 @@ async function runExpanded(browser, pageErrors) {
   assert.deepEqual(afterNoMatch.audit.at(-1).details.case_ids, []);
   assert.deepEqual(afterNoMatch.audit.at(-1).details.contracts_analyzed, ['CTR-2003']);
   await verifyDesignSystem(page, ['p-select', 'p-textarea', 'p-input-text', 'p-accordion', 'p-button']);
+  await settleMotion(page);
   await page.screenshot({ path: path.join(output, 'desktop-multiple-cases.png'), fullPage: true });
   await page.goto(`${baseUrl}/#visao`);
   await page.getByRole('heading', { name: 'Visão geral', exact: true }).waitFor();
@@ -321,7 +351,165 @@ async function runExpanded(browser, pageErrors) {
   await verifyDesignSystem(mobile, ['p-select', 'p-input-text', 'p-textarea', 'p-button', 'p-accordion']);
   await verifyTypography(mobile, '#import-actor', 'label');
   assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Importação móvel não deve causar rolagem horizontal');
+  await settleMotion(mobile);
   await mobile.screenshot({ path: path.join(output, 'mobile-multiple-cases.png'), fullPage: true });
+  await mobile.close();
+}
+
+async function runGovernance(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, locale: 'pt-BR' });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const snapshot = async () => (await page.request.get(`${baseUrl}/api/state`)).json();
+  const fillAudit = async (form, reason) => {
+    await form.getByLabel('Responsável pelo registro').fill('Gestora Demo');
+    await form.getByLabel('Justificativa do registro').fill(reason);
+  };
+  const save = async (form, label) => {
+    const response = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/api/'));
+    await form.getByRole('button', { name: label, exact: true }).click();
+    const result = await response;
+    assert.ok(result.ok(), await result.text());
+    await page.getByText('Registro atualizado.', { exact: true }).waitFor();
+  };
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#impactos`);
+  await page.getByRole('heading', { name: 'Novo controle', exact: true }).click();
+  let form = page.getByTestId('control-new');
+  await form.getByLabel('Nome do controle').fill('Conferência sintética de vínculos');
+  await form.getByLabel('Descrição do controle').fill('Conferência por duas pessoas antes da aprovação.');
+  await fillAudit(form, 'Ampliar a cobertura do catálogo sintético.');
+  await save(form, 'Criar controle');
+  const control = (await snapshot()).controls.find((item) => item.name === 'Conferência sintética de vínculos');
+  assert.ok(control);
+  await page.getByTestId(`catalog-${control.id}`).getByRole('heading', { name: 'Editar controle', exact: true }).click();
+  form = page.getByTestId(`control-${control.id}`);
+  await form.getByLabel('Descrição do controle').fill('Conferência e registro de evidência por duas pessoas.');
+  await fillAudit(form, 'Detalhar a evidência esperada.');
+  await save(form, 'Salvar controle');
+  assert.match((await snapshot()).controls.find((item) => item.id === control.id).description, /registro de evidência/);
+
+  await page.getByRole('heading', { name: 'Novo risco', exact: true }).click();
+  form = page.getByTestId('risk-new');
+  await form.getByLabel('Nome do risco').fill('Risco sintético de contratação');
+  await form.getByLabel('Conferência sintética de vínculos').check();
+  await fillAudit(form, 'Relacionar controle ao risco específico do lote.');
+  await save(form, 'Criar risco');
+  const risk = (await snapshot()).risks.find((item) => item.name === 'Risco sintético de contratação');
+  assert.deepEqual(risk.control_ids, [control.id]);
+
+  await page.getByRole('heading', { name: 'Nova dimensão', exact: true }).click();
+  form = page.getByTestId('dimension-new');
+  await form.getByLabel('Nome da dimensão').fill('Verificação sintética de terceiros');
+  await form.locator('p-input-text[name=question_text_0]').getByRole('textbox').fill('As verificações possuem evidências?');
+  await fillAudit(form, 'Criar metodologia ilustrativa com uma pergunta.');
+  await save(form, 'Criar dimensão');
+  const dimension = (await snapshot()).dimensions.find((item) => item.name === 'Verificação sintética de terceiros');
+  assert.equal(dimension.questions.length, 1);
+  let dimensionPanel = page.getByTestId(`catalog-${dimension.id}`);
+  await dimensionPanel.getByRole('heading', { name: 'Responder questionário', exact: true }).click();
+  form = page.getByTestId(`assessment-${dimension.id}`);
+  await form.getByRole('spinbutton', { name: /Pontuação/ }).fill('2');
+  await form.getByLabel('Evidência que sustenta a pontuação').fill('Amostra sintética: duas evidências disponíveis de cinco previstas.');
+  await fillAudit(form, 'Avaliação humana da lacuna na amostra.');
+  await form.getByLabel('Revisei as evidências e confirmo esta avaliação humana').check();
+  await save(form, 'Registrar avaliação de maturidade');
+  const assessment = (await snapshot()).assessments.at(-1);
+  assert.equal(assessment.score, 40);
+  assert.equal(assessment.level, 'Intermediária');
+  assert.equal(assessment.answers[0].gap, 3);
+  await page.getByTestId('assessments').getByText(/Lacuna 3/).waitFor();
+  await verifyDesignSystem(page, ['p-checkbox', 'p-input-number', 'p-accordion', 'p-select']);
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-governance-catalogs.png'), fullPage: true });
+
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#inteligencia`);
+  form = page.getByTestId('case-links');
+  await choose(form.locator('#case-risk'), risk.name);
+  await choose(form.locator('#case-dimension'), dimension.name);
+  await fillAudit(form, 'Direcionar a análise aos registros específicos.');
+  await save(form, 'Salvar vínculos do caso');
+  assert.equal((await snapshot()).cases.find((item) => item.id === 'ELO-2001').risk_id, risk.id);
+  await choose(page.locator('#dossier-mode'), 'Síntese local');
+  await page.getByTestId('generate-dossier').click();
+  await page.getByTestId('dossier').waitFor();
+  await choose(page.locator('#decision-review'), 'Aceitar');
+  await choose(page.locator('#decision-outcome'), 'Registrar fragilidade');
+  await input(page, '#decision-actor').fill('Analista Demo 3');
+  await input(page, '#decision-reason').fill('A fragilidade demanda avaliação dos controles deste risco.');
+  await page.getByRole('button', { name: 'Registrar decisão', exact: true }).click();
+  await page.getByTestId('case-decision').getByText('Aceitou a sugestão', { exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Avaliar impacto em risco e maturidade' }).click();
+  await page.getByText(risk.name, { exact: true }).first().waitFor();
+  await decideImpact(page, 'risk', 'approved', 'Exposição ampliada após análise humana do vínculo.');
+  await decideImpact(page, 'maturity', 'rejected', 'Preservar avaliação baseada no questionário; ampliar amostra antes de alterar.');
+  const afterImpacts = await snapshot();
+  assert.equal(afterImpacts.risks.find((item) => item.id === risk.id).level, 'Alta');
+  assert.equal(afterImpacts.dimensions.find((item) => item.id === dimension.id).level, 'Intermediária');
+
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#governanca`);
+  await input(page, '#action-title').fill('Revisar evidências do segundo caso');
+  await input(page, '#action-owner').fill('Executora Demo');
+  await input(page, '#action-due').fill('2027-02-20');
+  await input(page, '#action-actor').fill('Gestora Demo');
+  await page.getByRole('button', { name: 'Criar plano de ação' }).click();
+  const action = page.getByTestId('action-item').filter({ hasText: 'Revisar evidências do segundo caso' });
+  await action.getByRole('heading', { name: 'Editar responsável e prazo', exact: true }).click();
+  form = action.locator('form[data-endpoint="action/edit"]');
+  await form.getByLabel('Pessoa responsável').fill('Nova Executora Demo');
+  await form.getByLabel('Prazo').fill('2027-03-01');
+  await fillAudit(form, 'Redistribuição da execução com prazo revisado.');
+  await save(form, 'Salvar responsável e prazo');
+  await action.getByText(/Nova Executora Demo · Prazo 2027-03-01/).waitFor();
+
+  await page.getByRole('button', { name: 'Atualizar indicadores de supervisão', exact: true }).click();
+  await page.getByTestId('supervision-summary').getByText('Síntese local', { exact: true }).waitFor();
+  await page.getByTestId('supervision-summary').getByText(/Código sintético compartilhado por coincidência/).waitFor();
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#inteligencia`);
+  const beforeLab = await snapshot();
+  await page.getByRole('button', { name: 'Executar laboratório sintético', exact: true }).click();
+  await page.getByTestId('laboratory-result').getByText(/Precisão:/).waitFor();
+  assert.deepEqual(await snapshot(), beforeLab, 'Laboratório não pode alterar o estado operacional');
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-laboratory.png'), fullPage: true });
+  await page.close();
+
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  mobile.on('pageerror', (error) => pageErrors.push(error.message));
+  await mobile.goto(`${baseUrl}/#impactos`);
+  dimensionPanel = mobile.getByTestId(`catalog-${dimension.id}`);
+  await dimensionPanel.getByRole('heading', { name: 'Responder questionário', exact: true }).tap();
+  await mobile.getByTestId(`assessment-${dimension.id}`).getByRole('spinbutton').waitFor({ state: 'visible' });
+  await verifyDesignSystem(mobile, ['p-checkbox', 'p-input-number', 'p-textarea', 'p-input-text', 'p-button']);
+  await verifyTypography(mobile, `#assessment-${dimension.id}-actor`, 'label');
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Questionário móvel não deve causar rolagem horizontal');
+  await settleMotion(mobile);
+  await mobile.screenshot({ path: path.join(output, 'mobile-maturity-questionnaire.png'), fullPage: true });
+  const mobileAssessment = mobile.getByTestId(`assessment-${dimension.id}`);
+  await mobileAssessment.getByRole('spinbutton').scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  await mobile.screenshot({ path: path.join(output, 'mobile-maturity-question.png') });
+  await mobileAssessment.getByLabel('Justificativa do registro').fill('Conferência visual e avaliação humana em dispositivo móvel.');
+  await settleMotion(mobile);
+  await mobile.screenshot({ path: path.join(output, 'mobile-maturity-confirmation.png') });
+  const submitAssessment = mobileAssessment.getByRole('button', { name: 'Registrar avaliação de maturidade', exact: true });
+  await mobileAssessment.getByRole('spinbutton').fill('3');
+  await mobileAssessment.getByLabel('Evidência que sustenta a pontuação').fill('Amostra sintética revisada em dispositivo móvel.');
+  await mobileAssessment.getByLabel('Responsável pelo registro').fill('Revisora Mobile Demo');
+  await mobileAssessment.getByLabel('Revisei as evidências e confirmo esta avaliação humana').check();
+  await submitAssessment.scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  const submitLayout = await submitAssessment.evaluate((button) => {
+    const style = getComputedStyle(button), rect = button.getBoundingClientRect();
+    return { visibility: style.visibility, opacity: style.opacity, top: rect.y, bottom: rect.bottom, height: rect.height, viewport: innerHeight };
+  });
+  assert.equal(submitLayout.visibility, 'visible');
+  assert.equal(submitLayout.opacity, '1');
+  assert.ok(submitLayout.top >= 0 && submitLayout.bottom <= submitLayout.viewport && submitLayout.height > 0);
+  await submitAssessment.screenshot({ path: path.join(output, 'mobile-maturity-submit.png') });
+  await mobile.screenshot({ path: path.join(output, 'mobile-maturity-confirmation.png') });
+  await submitAssessment.click();
+  await mobile.getByTestId('assessments').getByText(/AVA-002/).waitFor();
+  assert.equal((await (await mobile.request.get(`${baseUrl}/api/state`)).json()).assessments.at(-1).actor, 'Revisora Mobile Demo');
+  assert.equal((await (await mobile.request.get(`${baseUrl}/api/state`)).json()).assessments.at(-1).score, 60);
   await mobile.close();
 }
 
@@ -338,6 +526,7 @@ async function main() {
     await runDesktop(browser, pageErrors);
     await runMobile(browser, pageErrors);
     await runExpanded(browser, pageErrors);
+    await runGovernance(browser, pageErrors);
     assert.deepEqual(pageErrors, []);
     console.log('Elo: jornada executável e navegação móvel verificadas com Playwright.');
   } finally {

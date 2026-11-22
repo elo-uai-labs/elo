@@ -32,7 +32,7 @@ npm run setup:ai
 npm run dev
 ```
 
-O executável é compilado do código versionável `backend/on_device.swift` para `.local/elo-on-device`, detectado automaticamente ao iniciar. No dossiê, selecione **IA real**. A disponibilidade do modelo é verificada na geração; falhas aparecem na interface e não são substituídas silenciosamente pela síntese local.
+O executável é compilado do código versionável `backend/on_device.swift` para `.local/elo-on-device`, detectado automaticamente ao iniciar. Ao atualizar uma instalação anterior, execute novamente `npm run setup:ai`: o contrato `elo-dossier-v3` usa afirmações com fontes individuais, limitações e sugestão separadas. No dossiê, selecione **IA real**. A disponibilidade do modelo é verificada na geração; falhas aparecem na interface e não são substituídas silenciosamente pela síntese local.
 
 Alternativamente, configure `OPENAI_API_KEY` e `ELO_MODEL` no ambiente ou em `.env` (ignorado pelo Git). Somente o backend usa as credenciais. A integração Apple tem preferência quando o executável local existe; para selecionar explicitamente OpenAI, execute sem esse binário. A opção **Síntese local** é determinística e identificada como tal, sem chamada a um modelo.
 
@@ -84,3 +84,13 @@ python3 backend/audit_export.py /caminho/elo-auditoria.json
 ```
 
 O verificador recalcula hashes, sequência, encadeamento e estado final. Isso comprova consistência interna; não substitui assinatura digital ou prova independente de autoria. O pacote contém todos os registros sintéticos, decisões, fontes, versões e planos persistidos.
+
+## Catálogos, avaliação e supervisão
+
+Em **Risco e maturidade**, crie e edite riscos e controles; arquive registros preservando seus vínculos históricos. Configure perguntas, pesos e pontuações máximas das dimensões ilustrativas. A avaliação humana exige evidência por resposta e justificativa; registra a versão das perguntas, a pontuação ponderada e as lacunas. Alterar o questionário sinaliza a necessidade de reavaliação, preservando avaliações anteriores.
+
+Na Inteligência, um analista pode revisar o risco e a dimensão associados antes de decidir. Alterações concorrentes de vínculos, controles ou avaliações impedem aprovar uma versão desatualizada. No plano, edite responsável e prazo com justificativa; a execução solicita encerramento e uma pessoa distinta aprova ou recusa. Sem autenticação configurada, os nomes continuam autodeclarados.
+
+O painel de supervisão separa concordância com IA real de concordância com síntese local e apresenta os motivos de discordância. Uma heurística explícita sinaliza cinco aceitações consecutivas em menos de dez segundos cada; o alerta exige análise humana e não demonstra aprovação automática.
+
+O laboratório sintético tem gabarito independente e versionado. Execute pela Central de inteligência ou com `npm run lab`. Resultados incluem TP/FP/FN/TN, precisão e recall com denominadores. A execução não cria casos nem altera a base do ambiente; desempenho no gabarito não estima resultados em dados reais.

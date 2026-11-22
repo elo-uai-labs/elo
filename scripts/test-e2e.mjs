@@ -17,6 +17,7 @@ await new Promise((resolve) => probe.close(resolve));
 const url = `http://127.0.0.1:${port}`;
 const env = { ...process.env, ELO_API_PORT: String(port), ELO_DB: path.join(temporary, 'test.sqlite3'), ELO_URL: url };
 let server;
+let serverLogs = '';
 
 async function run(args) {
   const child = spawn(process.execPath, args, { cwd: root, env, stdio: 'inherit' });
@@ -25,15 +26,15 @@ async function run(args) {
 }
 async function start() {
   server = spawn(process.execPath, ['scripts/start.mjs'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
-  let logs = '';
-  server.stdout.on('data', (data) => { logs += data; });
-  server.stderr.on('data', (data) => { logs += data; });
+  serverLogs = '';
+  server.stdout.on('data', (data) => { serverLogs += data; });
+  server.stderr.on('data', (data) => { serverLogs += data; });
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (server.exitCode !== null) throw new Error(`Servidor não iniciou: ${logs}`);
+    if (server.exitCode !== null) throw new Error(`Servidor não iniciou: ${serverLogs}`);
     try { if ((await fetch(`${url}/health`)).ok) return; } catch {}
     await delay(100);
   }
-  throw new Error(`Timeout ao iniciar servidor: ${logs}`);
+  throw new Error(`Timeout ao iniciar servidor: ${serverLogs}`);
 }
 async function stop() {
   if (!server || server.exitCode !== null) return;
@@ -58,6 +59,9 @@ try {
     auditValid: after.audit_valid, restartPersistence: true, desktop: true, mobile: true,
   }, null, 2));
   console.log('Build, jornada completa, Porsche Next, celular, indicadores e persistência após reiniciar: OK.');
+} catch (error) {
+  if (serverLogs) console.error('Diagnóstico do servidor isolado:\n' + serverLogs);
+  throw error;
 } finally {
   await stop();
   await rm(temporary, { recursive: true, force: true });

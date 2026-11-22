@@ -14,11 +14,12 @@ from threading import Lock
 from urllib.parse import parse_qs, unquote, urlsplit
 
 import dossier
+import governance
 from audit_export import build_export
 from domain import Store, WorkflowError, choice, require
 
 ROOT = Path(__file__).resolve().parent.parent
-COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update"}
+COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", *governance.COMMANDS}
 
 
 class EloServer(ThreadingHTTPServer):
@@ -85,7 +86,20 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(403, {"error": "Use o endereço local do Elo."})
             return
         path = urlsplit(self.path).path
-        if path == "/api/audit/export":
+        if path == "/api/supervision":
+            try:
+                import supervision
+                snapshot = self.server.store.read()
+                require(snapshot["audit_valid"], "A integridade da trilha precisa ser verificada.")
+                self.send_json(200, supervision.summary(snapshot))
+            except WorkflowError as error:
+                self.send_json(error.status, {"error": str(error)})
+            except sqlite3.Error:
+                self.send_json(503, {"error": "Banco indisponível. Tente novamente."})
+        elif path == "/api/laboratory":
+            import laboratory
+            self.send_json(200, laboratory.run_laboratory())
+        elif path == "/api/audit/export":
             try:
                 self.send_json(200, build_export(self.server.store.export_state()))
             except WorkflowError as error:
@@ -125,7 +139,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get_content_type() != "application/json":
                 raise WorkflowError("Use application/json.", 415)
             length = int(self.headers.get("Content-Length", "0"))
-            if length > (524288 if command == "import" else 8192):
+            if length > (524288 if command == "import" else 65536 if command in governance.COMMANDS else 8192):
                 raise WorkflowError("O pedido é grande demais.", 413)
             if length <= 0:
                 raise ValueError

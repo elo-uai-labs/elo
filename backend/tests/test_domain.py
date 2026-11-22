@@ -41,13 +41,16 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(action["case_id"], state["case"]["id"])
         with self.assertRaises(WorkflowError):
             self.store.apply("action/update", {"id": action["id"], "status": "done", "actor": "Gestor demo"})
-        self.store.apply("action/update", {"id": action["id"], "status": "done", "actor": "Gestor demo", "evidence": "Ata sintética"})
+        self.store.apply("action/update", {"id": action["id"], "status": "done", "actor": "Gestor demo", "evidence": "Ata sintética", "action_revision": action["revision"]})
+        pending = self.store.read()["actions"][0]
+        self.assertEqual(pending["status"], "closure_requested")
+        self.store.apply("action/close", {"id": action["id"], "action_revision": pending["revision"], "actor": "Revisor independente", "reason": "Evidência conferida", "outcome": "approved"})
         state = Store(self.path).read()
         self.assertEqual(state["risk"]["level"], "Alta")
         self.assertEqual(state["maturity"]["level"], "Intermediária")
         self.assertEqual(state["actions"][0]["status"], "done")
         self.assertTrue(state["audit_valid"])
-        self.assertEqual(len(state["audit"]), 7)
+        self.assertEqual(len(state["audit"]), 8)
 
     def test_nonqualified_case_cannot_change_other_modules(self):
         revision = self.analyze()["case"]["dossier"]["revision"]

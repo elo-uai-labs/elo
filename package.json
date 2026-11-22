@@ -15,7 +15,8 @@
     "setup:ai": "node scripts/setup-ai.mjs",
     "test:backend": "python3 -m unittest discover -s backend/tests -v",
     "test:e2e": "node scripts/test-e2e.mjs",
-    "test": "npm run test:backend && npm run test:e2e"
+    "test": "npm run test:backend && npm run test:e2e",
+    "lab": "python3 backend/laboratory.py"
   },
   "dependencies": {
     "@porsche-design-system/components-js": "4.10.1"

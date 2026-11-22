@@ -1,3 +1,31 @@
+# Evolução do Product Vision · 22/11/2026
+
+Pedido atual: continuar o desenvolvimento completo pelo orquestrador pessoal, com prioridade para piloto com usuários reais e integrações autorizadas. O usuário confirmou **login, primeira fonte e hospedagem a definir**. A execução permanece local e sintética; não houve publicação nem uso do banco manual nos testes.
+
+A [matriz completa](product-vision.md) preserva P0/P1/P2 e as dependências externas. Os registros abaixo de “Entrega anterior” descrevem a migração precedente e não constituem o estado final da evolução atual.
+
+## S1 · checkpoint local `fb98394`
+
+Implementado e validado: importação incremental com validação atômica e limites; múltiplos casos com seleção explícita; detecção incremental sem duplicação; lote sem novos indícios como resultado válido; consulta de registros originais e regra versionada; indicadores agregados; exportação verificável do estado e da trilha. Fontes existentes não são substituídas. O estado legado é verificado antes de qualquer normalização e a migração é persistida somente dentro de uma nova transação auditada.
+
+- Backend: 24 testes aprovados.
+- Build e Playwright ampliado em Node 24: desktop/celular, recuperação de importação inválida, isolamento de três casos, persistência da seleção, resultado negativo, exportação baixada e verificada por processo Python independente, reinício com estado idêntico.
+- PDS 4.10.1: componentes oficiais, estilos computados e glifos Porsche Next de webfont verificados; capturas inspecionadas.
+- Revisão DBA independente: aprovada sobre hashes correspondentes ao commit `fb98394`; transações, migração, integridade, importação e isolamento.
+- Revisão de segurança independente: sem bloqueadores no escopo local/sintético; nenhuma certificação para dados reais. Identidades continuam autodeclaradas.
+- Revisão geral independente de frontend: corrigida restauração de botões originalmente desabilitados após erro. E2E também encontrou e corrigiu conflito entre o campo `dataset` e `HTMLFormElement.dataset`.
+- Medição local pelo orquestrador, sem revisão especializada independente disponível: 2.000 contratos, 1.999 casos, 40 leituras com concorrência 4, detecção 0,062 s, p95 0,237 s, máximo 0,254 s; limite provisório 2 s. Não certifica capacidade do piloto nem carga sustentada.
+
+Evidências regeneráveis em `output/validation/`: `result.json`, `typography.jsonl`, capturas, pacote de auditoria e `performance.json`. O checkpoint reúne também a aplicação preexistente, pois o repositório ainda não possuía commits. Branch local `codex/product-vision`, sem remoto/publicação.
+
+## Em desenvolvimento após S1
+
+S2: catálogos de riscos/controles, dimensões e avaliação ilustrativa configurável, vínculos humanos por caso, edição de planos e encerramento sujeito a revisão distinta. Laboratório sintético independente e métricas de supervisão também estão em implementação. Não declarar esses itens aprovados antes da integração e da homologação.
+
+---
+
+# Entrega anterior
+
 # Entrega e retomada
 
 ## Escopo

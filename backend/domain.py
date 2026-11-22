@@ -105,7 +105,8 @@ def normalize(state):
                               "processed_contract_ids": [row["id"] for row in state["dataset"]["contracts"]],
                               "rule": RULE} if state["case"] else None)
     state["case"] = state["cases"][0] if state["cases"] else None
-    return state
+    import governance
+    return governance.normalize(state)
 
 
 def selected_case(state, case_id=None):
@@ -122,6 +123,10 @@ def selected_case(state, case_id=None):
 def presentation(state, case_id=None):
     result = normalize(deepcopy(state))
     result["case"] = selected_case(result, case_id)
+    if result["case"]:
+        import governance
+        linked = governance.targets(result, result["case"])
+        result["risk"], result["maturity"] = linked["risk"], linked["maturity"]
     return result
 
 
@@ -154,6 +159,9 @@ def match_case(dataset):
 
 def transition(state, command, data):
     normalize(state)
+    import governance
+    if command in governance.COMMANDS:
+        return governance.transition(state, command, data)
     if command == "import":
         actor = required(data, "actor", 80)
         if data.get("synthetic") is not True:
@@ -190,6 +198,7 @@ def transition(state, command, data):
     case = selected_case(state, data.get("case_id"))
     require(case is not None, "Execute a detecção primeiro.")
     case_id = case["id"]
+    linked = governance.targets(state, case)
     if command == "dossier":
         data = {key: value for key, value in data.items() if key != "case_id"}
         require(case["decision"] is None, "A decisão já foi registrada.")
@@ -201,6 +210,8 @@ def transition(state, command, data):
     if command == "decision":
         require(case["dossier"] is not None, "Gere um dossiê antes da decisão.")
         require(case["decision"] is None, "A decisão já foi registrada.")
+        if case.get("linkage") or "linkage_revision" in data:
+            require(required(data, "linkage_revision", 64) == case["linkage_revision"], "Os vínculos mudaram. Atualize a página e revise o risco e a dimensão associados.")
         revision = required(data, "dossier_revision", 64)
         require(revision == case["dossier"]["revision"], "O dossiê mudou. Atualize a página e revise a nova versão.")
         outcome = choice(data, "outcome", ("discard", "monitor", "qualify"))
@@ -209,9 +220,11 @@ def transition(state, command, data):
         case["decision"] = {"outcome": outcome, "review": review, "actor": actor, "reason": reason, "dossier_revision": revision}
         case["status"] = outcome
         if outcome == "qualify":
+            require(not any(item["archived"] for item in linked.values()), "Os vínculos apontam para registros arquivados. Revise os vínculos antes de qualificar.")
             case["impacts"] = [
                 {"kind": kind, "label": label, "status": "pending", "case_id": case_id,
-                 "current_level": state[kind]["level"], "proposed_level": level, "rationale": rationale,
+                 "current_level": linked[kind]["level"], "proposed_level": ("Crítica" if kind == "risk" and linked[kind]["level"] == "Crítica" else level), "rationale": rationale,
+                 "target_id": linked[kind]["id"], "target_revision": linked[kind]["revision"],
                  "source_ids": [entry["id"] for entry in case["evidence"]]}
                 for kind, (label, level, rationale) in IMPACTS.items()
             ]
@@ -224,11 +237,15 @@ def transition(state, command, data):
         impact = next(item for item in case["impacts"] if item["kind"] == kind)
         require(impact["status"] == "pending", "Esta proposta já foi decidida.")
         if outcome == "approved":
-            require(state[kind]["level"] in (impact["current_level"], impact["proposed_level"]),
+            require(not linked[kind]["archived"], "O registro associado foi arquivado.")
+            if impact.get("target_revision"):
+                require(linked[kind]["revision"] == impact["target_revision"], "A avaliação mudou desde a proposta. Recuse a proposta desatualizada e registre uma nova avaliação humana no catálogo.")
+            require(linked[kind]["level"] in (impact["current_level"], impact["proposed_level"]),
                     "A avaliação mudou desde a proposta. Revise o contexto antes de aprovar.")
         impact.update(status=outcome, actor=actor, reason=required(data, "reason"))
         if outcome == "approved":
-            state[kind]["level"] = impact["proposed_level"]
+            linked[kind]["level"] = impact["proposed_level"]
+            governance.stamp(linked[kind])
         return "Impacto avaliado", actor, {"case_id": case_id, **impact}
 
     if command == "action":
@@ -246,19 +263,7 @@ def transition(state, command, data):
         state["actions"].append(item)
         return "Recomendação criada", actor, item
 
-    require(command == "action/update", "Ação desconhecida.")
-    action_id = required(data, "id", 24)
-    item = next((item for item in state["actions"] if item["id"] == action_id and item["case_id"] == case_id), None)
-    require(item is not None, "Recomendação não encontrada.")
-    status = choice(data, "status", ("open", "in_progress", "done"))
-    evidence = data.get("evidence", "")
-    if not isinstance(evidence, str) or len(evidence.strip()) > 500:
-        raise WorkflowError("Informe uma evidência com até 500 caracteres.")
-    evidence = evidence.strip()
-    if status == "done" and not evidence:
-        raise WorkflowError("Registre uma evidência para concluir a recomendação.")
-    item.update(status=status, evidence=evidence)
-    return "Recomendação atualizada", actor, item
+    return governance.action_transition(state, command, data, case)
 
 
 class Store:
@@ -295,6 +300,7 @@ class Store:
             require(state.pop("audit_valid"), "A integridade da trilha precisa ser verificada.")
             audit = state.pop("audit")
             action, actor, detail = transition(state, command, data)
+            normalize(state)
             state_encoded = serialize(state)
             event = {
                 "seq": len(audit) + 1, "at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
