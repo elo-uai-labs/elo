@@ -51,6 +51,8 @@ Sonda temporária: 100 GET concorrência 4,1 caso/20 trabalhos/22 eventos de neg
 
 Entregues [plano experimental](pilot-experiment.md), [modelo de custos](cost-model.csv) e [matriz de segurança](security-readiness.md). Valores comerciais permanecem A DEFINIR; fórmulas não constituem orçamento calculado. TRL 4 é autoavaliação proposta. Pendentes: homologação por usuários, premissas/cotações, responsáveis/metas do experimento e dependências corporativas abaixo. O escopo não inclui PDF/OCR, editor arbitrário de regras ou certificação de capacidade/segurança corporativa. Não houve submissão, publicação externa ou uso do banco manual em testes.
 
+Revisão final do commit de implementação `968e91a`: hashes de domínio, servidor, consulta/modelo, documentos, trabalhos, parâmetros e laboratório conferidos pelo revisor independente contra os snapshots aprovados. Nenhum bloqueador de código; correções posteriores apenas sincronizam dois registros documentais que ainda indicavam validação pendente.
+
 ## Dependências para o piloto real
 
 O usuário confirmou **provedor de login, primeira fonte autorizada e hospedagem a definir**. Também faltam metodologia oficial de maturidade, metas de volume/concorrência/disponibilidade e homologação no ambiente escolhido. O desenvolvimento local preserva todo o backlog; não certifica produto corporativo completo, conformidade, carga sustentada ou integração real. Não houve GitHub, publicação externa, contas reais ou envio a terceiros.

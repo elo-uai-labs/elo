@@ -76,4 +76,4 @@ Exportação da trilha de acessos é permitida a auditor/revisor/administrador. 
 
 Pré-verificação da trilha bloqueia POST quando já inválida. Se uma falha ocorrer ao registrar o recibo HTTP após commit de negócio, a resposta 503 manda conferir o estado: não há rollback retroativo entre as cadeias independentes. Exportação/backup recusam cadeia inconsistente. A trilha não monitora acesso direto administrativo ao SQLite e não substitui centralização externa, retenção homologada ou assinatura independente.
 
-Backend ampliado com 147 testes aprovados segundo o orquestrador; aceite final da nova interface/E2E ainda pendente neste registro. Permanece execução local/sintética.
+Backend ampliado com 152 testes aprovados; rodada canônica com jornadas desktop/celular e perfis autenticados aprovada. A jornada completa com IA Apple real também passou, incluindo TXT revisado e exportação de acesso. Permanece execução local/sintética; homologação corporativa pendente.
