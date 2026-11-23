@@ -28,3 +28,11 @@ O primeiro comando não carrega `.env`, esvazia a chave no processo e usa sínte
 O documento é conhecido/exposto da avaliação anterior, não um novo holdout. A checagem do total e das referências é um aceite funcional limitado, não avaliação semântica populacional. A conta de revisão é operada pelo teste, não por especialista humano. Não representa distribuição de documentos, identidade corporativa, TLS, rede externa, multizona ou escala máxima. O HTTP cliente tem timeout15s e o provedor30s; erro encerra o ensaio sem retry e pode haver consumo sem resposta persistida. A chamada paga não é iniciada se a etapa de OCR falhar.
 
 Saídas padrão: `output/validation/trl5/real-operation-smoke.json` e `real-operation.json`. A falha inicial do comparador está em `real-operation-smoke-initial.json`.
+
+## Resultado observado · 23/11/2026
+
+Execução do commit `96c0e59`, **aprovada no protocolo curto**. Exatamente duas tentativas OpenAI, ambas com resposta persistida `gpt-6.2-sol`; nenhum retry. A janela concorrente durou7,801s:144leituras,48por cliente,p95=.01360s,máximo=.01791s,zero erros inesperados e duas recusas403 esperadas ao auditor.
+
+Tempos individuais:OCR=.329s,dossiê=4.334s,consulta=3.129s. Não são percentis de IA/OCR nem promessa de latência futura. A consulta respondeu que o total registrado é330,00 e citouEVD-0001, cujo texto OCR foi aceito após comparação com o gabarito congelado. Estado protegido permaneceu inalterado. Uso auditado:1333tokens de entrada+306saída=1639total,duas respostas medidas; nenhum custo monetário calculado.
+
+Reinício preservou o snapshot;6eventos de negócio e157respostas API/157eventos de acesso, exportações verificadas eSQLiteok. `real-operation.json` contém hashes, metadados, fontes/claims sintéticos e resultados; `real-operation-smoke.json` comprova o mesmo percurso sem chamadas OpenAI. Não foram executadas chamadas reais adicionais para repetir ou melhorar a resposta.
