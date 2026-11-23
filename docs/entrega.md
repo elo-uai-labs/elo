@@ -1,3 +1,13 @@
+# Diagnóstico da Ana · 23/11/2026
+
+Implementação local do diagnóstico recebido: importador assistido CSV/XLSX com prévia/mapeamento e confirmação atômica; PDF digital e planilhas com página/célula, revisão humana e inconclusivos bloqueados; correlação explicável dos sinais do mesmo contrato e transparência das capacidades na UI. PDS **4.10.1** preservado, com correção de variantes/ícones não suportados. Checkpoints locais `17be831`, `6863c41` e `427c513`; nenhum push ou publicação.
+
+Build e 181 testes backend aprovados. E2E completo em desktop/celular, local e Apple Foundation Models real, incluindo novos importadores/documentos, exportação verificável e reinício com estado idêntico. Na rodada real: 93 eventos íntegros, dez casos; Porsche Next efetivamente renderizada. Rodada autenticada final aprovada, com cinco perfis, autoria canônica, segregação, atribuição e revogação de acesso. Revisões independentes de segurança, DBA, geral e performance registradas no [relatório da execução](diagnostico-ana-2026-11-23.md), que inclui roteiro reproduzível e limites. Evidências em `output/validation/`.
+
+Usuário confirmou que ainda não tem custos, prazo/orçamento do piloto e modelos dos Anexos II/II-A. Esses entregáveis permanecem pendentes de dados; não foram inventados preços ou aprovações. SSO/MFA, fontes/hospedagem, ancoragem externa, metodologia oficial e OCR validado continuam dependências/backlog explícitos. O banco manual não foi usado nos testes. Servidor manual reiniciado em loopback para carregar a versão atual, com os registros preservados.
+
+---
+
 # Evolução do Product Vision · 22/11/2026
 
 Pedido atual: continuar o desenvolvimento completo pelo orquestrador pessoal, com prioridade para piloto com usuários reais e integrações autorizadas. O usuário confirmou **login, primeira fonte e hospedagem a definir**. A execução permanece local e sintética; não houve publicação nem uso do banco manual nos testes.

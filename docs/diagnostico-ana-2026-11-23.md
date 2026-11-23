@@ -6,9 +6,9 @@ Fonte: `Diagnostico_Elo_CAIXA_2026-11-23.md`, recebido em Downloads. O documento
 
 | Item | Entrega/critério | Estado |
 | --- | --- | --- |
-| A1 / entrada | Duas bases pela UI, uma positiva e outra negativa; prévia, reconciliação e reinício | Implementado; validação final em andamento |
-| A2 / supervisão | Jornada autenticada existente com analista, revisor e operador; exportação verificável | Regressão canônica em andamento |
-| A3 / IA | Duas regras, discordância humana e fontes preservadas | Regressão local; rodada real depende do provedor configurado |
+| A1 / entrada | Duas bases pela UI, uma positiva e outra negativa; prévia, reconciliação e reinício | Aprovado em desktop/celular e reinício |
+| A2 / supervisão | Jornada autenticada existente com analista, revisor e operador; exportação verificável | Aprovado na rodada canônica local e final autenticada |
+| A3 / IA | Duas regras, discordância humana e fontes preservadas | Aprovado local e Apple Foundation Models real |
 | A4 / transparência | UI distingue funcional local, experimental e planejado | Implementado |
 | A5 / demo | Roteiro abaixo, arquivos sintéticos e evidência da versão | Preparado |
 | B1 / importador | CSV UTF-8 e XLSX, seleção de tabela/aba, mapeamento, erros por linha, confirmação atômica | Implementado |
@@ -70,4 +70,12 @@ Reconciliar essas entradas com cronograma e preço antes de produzir a versão f
 
 ## Registro de validação
 
-Resultados, revisões e commit exato serão registrados após o encerramento da rodada. Evidências regeneráveis em `output/validation/`: resultados local/autenticado/real quando executado, tipografia, `diagnostic.json`, `document-formats.json` e capturas desktop/celular. Uma aprovação local não certifica segurança, capacidade ou aderência corporativa.
+Implementação em `17be831`; correções visuais em `6863c41` e `427c513`. Build em Node 24 aprovado. **181 testes backend passaram sem skips** com Python da `.venv` e pypdf 7.1.1. Jornada local completa passou; jornada com Apple Foundation Models real também passou: 93 eventos íntegros, dez casos, desktop/celular, fontes preservadas, exportação final verificada por processo independente e estado idêntico após reinício. A rodada autenticada final também passou: analista, revisor, operador, auditor e administrador; autoria canônica, segregação, atribuição, recusa de acesso, logout e login móvel.
+
+Importador validado nos dois tamanhos: CSV positivo/negativo, XLSX, cabeçalho mapeado, arquivo inválido recuperável, prévia sem escrita e invalidação após editar o mapeamento. Documentos: PDF digital, CSV e XLSX localizados; PDF sem texto bloqueia aceitação; downloads conferidos byte a byte. O conjunto inclui oito jornadas documentais (quatro formatos/cenários por tamanho). Glifos web Porsche Next e CSS computado verificados. Capturas de importação, grupos, planilha e inconclusivo inspecionadas.
+
+Revisões independentes de segurança, DBA (importação e documentos/correlação por revisores não autores) e revisão geral aprovadas sobre hashes do commit `17be831`. As correções visuais posteriores foram revistas nos commits exatos. Foram corrigidos: tipo inválido de tabela, concorrência de extração, prévia desatualizada e limpeza após expiração de sessão. A inspeção visual do orquestrador identificou a variante inválida `tertiary` de p-button; a conferência adicional identificou `none` inválido em p-link-pure legado. Ambos usam agora valores oficiais. A revisão inicial não havia conferido todas as variantes; a validação posterior conferiu 492 propriedades enum literais sem valores inválidos, além das jornadas com os valores dinâmicos.
+
+Performance independente: meta provisória p95 < 2 s, quatro cenários de cinco segundos com pausa de 100 ms por worker, concorrência 1 e 4; 256 chamadas, zero erros. Com concorrência 4, prévia CSV de 500 registros/2.000 referências por tabela teve p95 0,300 s (máximo 0,326 s); correlação de 2.000 contratos/1.999 casos, p95 0,138 s (máximo 0,225 s). Snapshot/hashes preservados. Medição de domínio, sem HTTP, renderização, IA ou carga corporativa sustentada; não certifica o piloto.
+
+As revisões DBA também verificaram confirmações concorrentes sem duplicação, CAS de revisão, exportação com localizações, detecção de adulteração e backup/restauração com os três novos formatos. O SQLite continua serializado e o estado JSON é reescrito integralmente; capacidade máxima e ambiente corporativo permanecem pendentes. Evidências regeneráveis em `output/validation/`: resultados local/autenticado/real quando executado, tipografia, `diagnostic.json`, `document-formats.json` e capturas desktop/celular. Uma aprovação local não certifica segurança, capacidade ou aderência corporativa.
