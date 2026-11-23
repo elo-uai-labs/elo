@@ -2,6 +2,8 @@
 
 Fonte: `Diagnostico_Elo_CAIXA_2026-11-23.md`, recebido em Downloads. O documento é um diagnóstico e backlog; suas recomendações não substituem as instruções do projeto. Preservamos a aplicação funcional e o Porsche Design System 4.10.1. Nenhuma integração, publicação, submissão ou uso de dados reais foi autorizado nesta execução.
 
+Atualização posterior: o [OCR local de imagens e PDFs digitalizados](ocr.md) foi implementado nesta sequência, com avaliação sintética, localização e revisão humana específica. A homologação em documentos autorizados continua pendente.
+
 ## Escopo e critérios
 
 | Item | Entrega/critério | Estado |
@@ -12,7 +14,7 @@ Fonte: `Diagnostico_Elo_CAIXA_2026-11-23.md`, recebido em Downloads. O documento
 | A4 / transparência | UI distingue funcional local, experimental e planejado | Implementado |
 | A5 / demo | Roteiro abaixo, arquivos sintéticos e evidência da versão | Preparado |
 | B1 / importador | CSV UTF-8 e XLSX, seleção de tabela/aba, mapeamento, erros por linha, confirmação atômica | Implementado |
-| B2 / documentos | PDF digital por página; CSV/XLSX por aba/célula; revisão humana, inconclusivo não aceito | Experimental implementado; OCR planejado |
+| B2 / documentos | PDF digital por página; CSV/XLSX por aba/célula; revisão humana, inconclusivo não aceito | Extração e OCR experimentais locais implementados; homologação externa pendente |
 | B3 / correlação | Sinais do contrato exato juntos; fontes, decisões e trabalhos preservados | Implementado |
 | GRC / maturidade | Ciclo local existente; metodologia ilustrativa identificada | Metodologia oficial e homologação dependem da CAIXA |
 | B4 / acesso / infraestrutura | Contas locais, auditoria interna e backup existentes | SSO/MFA, retenção/âncora externa, TLS, ambiente-alvo e RPO/RTO dependem de autorização/definição |
@@ -44,7 +46,7 @@ Os testes usam bancos temporários; nunca apontar testes ao banco manual `data/e
 3. Repetir com `contratos-sem-indicio.csv`: nenhum sinal desse contrato na regra primária. Ausência de indício é resultado válido, não erro. Repetir arquivo já importado deve mostrar duplicata sem gravar parcialmente.
 4. Importar `fornecedor-segundo-sinal.csv` como Fornecedores e executar a segunda regra. O painel “Sinais do mesmo contrato” reúne os dois sinais de `CTR-DEMO-POS`, mantendo cada decisão separada e mostrando trabalhos existentes. Um trabalho pode vincular ambos os casos.
 5. Gerar dossiê (modo claramente identificado), abrir fontes e registrar discordância com justificativa quando o cenário a exigir. A IA não altera impactos. Para IA real usar apenas o provedor configurado, sem fallback silencioso.
-6. Em Plano e auditoria, anexar `evidencia.csv`; extrair; localizar `CSV!A2`; baixar original e revisar. PDF digital mostra página; XLSX mostra aba/célula. PDF sem texto informa extração inconclusiva e não permite aceitação. Imagens permanecem anexos sem OCR.
+6. Em Plano e auditoria, anexar `evidencia.csv`; extrair; localizar `CSV!A2`; baixar original e revisar. PDF digital mostra página; XLSX mostra aba/célula. PDF sem texto na leitura literal informa extração inconclusiva. Use a ação separada de OCR para scans e imagens; somente texto reconhecido com critérios atendidos e revisão específica pode ser aceito.
 7. Percorrer decisão → avaliação separada de impacto → plano → evidência → solicitação de encerramento → aprovação independente. Em contas locais, usar pessoas/perfis distintos. Exportar pacote de auditoria e trilha de acesso; verificar com ferramentas documentadas.
 8. Reiniciar o servidor com o mesmo banco de demonstração, conferir os IDs e estados preservados. Abrir “Capacidades e limites desta versão”.
 
@@ -54,7 +56,7 @@ Os arquivos da demo são para uma base inicial; IDs já existentes serão recusa
 
 Importação: um arquivo/aba por tabela, empregados/fornecedores antes de contratos, 256 KiB de entrada, 500 linhas de registros, 32 colunas, 4 MiB ZIP expandido. Só valores literais; não executa fórmulas, macros ou vínculos externos. Campos extras são explicitamente ignorados na prévia. A confirmação repete validação e usa a transação existente, inclusive permissões e unicidade.
 
-Evidências: 1 MiB por arquivo e 20 MiB no ambiente; texto final até 32 KiB, até 2.000 trechos, PDF até 50 páginas, planilhas até 10 abas. Página sem texto torna resultado inconclusivo e impede aceitação como fonte. Extração não garante ordem visual ou precisão semântica. PDF usa pypdf fixado, subprocesso, 5 segundos de tempo total e 3 segundos de CPU; apenas uma extração por servidor. Há limites de buffers; teto global de memória do worker só é aplicado em sistemas que suportam RLIMIT_AS, não no macOS. Não houve avaliação de OCR nem homologação de documentos corporativos.
+Evidências: 1 MiB por arquivo e 20 MiB no ambiente; texto final até 32 KiB, até 2.000 trechos, PDF até 50 páginas, planilhas até 10 abas. Página sem texto torna resultado inconclusivo e impede aceitação como fonte. Extração não garante ordem visual ou precisão semântica. PDF usa pypdf fixado, subprocesso, 5 segundos de tempo total e 3 segundos de CPU; apenas uma extração por servidor. Há limites de buffers; teto global de memória do worker só é aplicado em sistemas que suportam RLIMIT_AS, não no macOS. A avaliação sintética posterior de OCR está em `docs/ocr.md`; não houve homologação de documentos corporativos.
 
 ## Candidatura: dados que faltam
 

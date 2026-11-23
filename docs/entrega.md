@@ -1,3 +1,13 @@
+# OCR local · 23/11/2026
+
+OCR experimental implementado para PNG, JPEG e PDF digitalizado, usando Tesseract 5.5.4 e rasterização PDFKit/ImageIO local. Modelos oficiais português/inglês fixados por commit e SHA-256. Página, região, escores internos, versão e original preservados; texto sem revisão não entra no assistente. Baixa confiança/ausência de texto bloqueiam aceitação. Uma leitura literal inconclusiva pode ser seguida de OCR sem apagar o histórico, com uma única fonte aceita por arquivo.
+
+Commit `d3bdc7e`, sem publicação. **197 testes backend, build e suíte canônica com IA real passaram**. Desktop/celular cobriram oito jornadas OCR, confirmação humana adicional, download íntegro, branco inconclusivo e preservação de análise literal; pacote final verificado, 119 eventos íntegros, dez casos, estado idêntico após reinício. Rodada local também aprovada, com 117 eventos. PDS4.10.1 e glifos Porsche Next verificados; capturas inspecionadas.
+
+Avaliação sintética: zero erros nos textos legíveis (48 caracteres PNG/JPEG/PDF, 54 com acentos); vazio/degradado abstêm. Doze extrações sequenciais tiveram p95/máximo0,406s contra meta provisória5s. Amostras pequenas não estimam precisão ou capacidade corporativa. Revisões independentes de segurança, DBA, geral e performance aprovadas no escopo local, detalhadas em [OCR: preparação, critérios e evidências](ocr.md). Banco manual não usado nos testes; serviço local reiniciado sem resetar os dados.
+
+---
+
 # Diagnóstico da Ana · 23/11/2026
 
 Implementação local do diagnóstico recebido: importador assistido CSV/XLSX com prévia/mapeamento e confirmação atômica; PDF digital e planilhas com página/célula, revisão humana e inconclusivos bloqueados; correlação explicável dos sinais do mesmo contrato e transparência das capacidades na UI. PDS **4.10.1** preservado, com correção de variantes/ícones não suportados. Checkpoints locais `17be831`, `6863c41` e `427c513`; nenhum push ou publicação.
