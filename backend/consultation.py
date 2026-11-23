@@ -5,6 +5,7 @@ import re
 from copy import deepcopy
 from datetime import datetime, timezone
 
+from ai_usage import valid_usage
 from domain import WorkflowError, choice, required, require, selected_case, serialize
 
 PROMPT_VERSION = "elo-assistant-v1"
@@ -80,13 +81,15 @@ def answer(context, generator=None):
             from dossier import generate_grounded
             generator = generate_grounded
         result = generator(context["sources"], INSTRUCTIONS, context["question"])
-    allowed = {"mode", "model", "claims", "limitations", "suggestion", "text", "source_ids", "prompt_version"}
+    allowed = {"mode", "model", "claims", "limitations", "suggestion", "text", "source_ids", "prompt_version", "usage"}
     if (not isinstance(result, dict) or not set(result).issubset(allowed)
             or result.get("mode") != context["mode"]
             or not isinstance(result.get("model"), str) or not 0 < len(result["model"].strip()) <= 240
             or not isinstance(result.get("limitations"), str) or not 0 < len(result["limitations"].strip()) <= 1200
             or not isinstance(result.get("suggestion"), str) or not 0 < len(result["suggestion"].strip()) <= 600):
         raise WorkflowError("A resposta não respeitou os metadados do assistente.", 502)
+    if "usage" in result and (context["mode"] != "real" or not valid_usage(result["usage"])):
+        raise WorkflowError("Metadados de consumo inválidos.", 502)
     claims = result.get("claims")
     if not isinstance(claims, list) or len(claims) > 6:
         raise WorkflowError("A resposta não respeitou o formato de fontes do assistente.", 502)
@@ -106,6 +109,8 @@ def answer(context, generator=None):
         result = {**result, "limitations": "As fontes selecionadas não sustentaram uma resposta. Não é possível concluir a partir desta consulta.",
                   "suggestion": "Consulte as fontes originais ou reformule a pergunta dentro do caso."}
     clean = {key: deepcopy(result[key]) for key in ("mode", "model", "claims", "limitations", "suggestion")}
+    if "usage" in result:
+        clean["usage"] = deepcopy(result["usage"])
     return {**clean, "prompt_version": PROMPT_VERSION, "abstained": not bool(claims),
             "case_id": context["case_id"], "question": context["question"], "context_hash": context["context_hash"],
             "captured_at": context["captured_at"],
@@ -125,4 +130,5 @@ def record(state, data):
     queries.append(entry)
     return "Consulta ao assistente registrada", actor, {"query_id": entry["id"], "case_id": entry["case_id"],
         "question": entry["question"], "mode": entry["mode"], "model": entry["model"],
-        "prompt_version": entry["prompt_version"], "context_hash": entry["context_hash"], "abstained": entry["abstained"]}
+        "prompt_version": entry["prompt_version"], "context_hash": entry["context_hash"], "abstained": entry["abstained"],
+        **({"usage": deepcopy(entry["usage"])} if "usage" in entry else {})}

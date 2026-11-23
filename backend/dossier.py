@@ -10,6 +10,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from domain import WorkflowError
+from ai_usage import openai_usage
 
 PROMPT_VERSION = "elo-dossier-v4"
 INSTRUCTIONS = (
@@ -186,6 +187,7 @@ def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, q
             raise ValueError("Incomplete model response")
         output = next(part["text"] for item in result["output"] if item["type"] == "message"
                       for part in item["content"] if part["type"] == "output_text")
-        return verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None)
+        return {**verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None),
+                "usage": openai_usage(result.get("usage"))}
     except (URLError, TimeoutError, ValueError, KeyError, TypeError, AttributeError, StopIteration) as error:
         raise WorkflowError("A síntese por IA não foi concluída. Confira a configuração e tente novamente.", 502) from error
