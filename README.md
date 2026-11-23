@@ -155,4 +155,4 @@ O [painel operacional](docs/operacao-equipes.md) oferece avisos in-app, filtros,
 
 ## Fechamento local do Product Vision
 
-A [supervisão](docs/product-vision-closure.md) amplia o recorte das decisões sem alterar indicadores globais. [Consumo da IA](docs/consumo-ia.md) registra tokens informados pelo provedor nas respostas persistidas e oferece relatório de estimativa com tarifas explícitas. O [instrumento de benefício](docs/benefit-measurement.md) prepara a comparação de tarefas com e sem Elo, sem inventar resultados de participantes. Aceites e limites desta rodada ficam no registro de fechamento.
+A [supervisão](docs/supervisao-filtros.md) amplia o recorte das decisões sem alterar indicadores globais. [Consumo da IA](docs/consumo-ia.md) registra tokens informados pelo provedor nas respostas persistidas e oferece relatório de estimativa com tarifas explícitas. O [instrumento de benefício](docs/benefit-measurement.md) prepara a comparação de tarefas com e sem Elo, sem inventar resultados de participantes. Aceites e limites desta rodada ficam no registro de fechamento.

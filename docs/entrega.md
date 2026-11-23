@@ -1,3 +1,15 @@
+# Fechamento local do Product Vision · 23/11/2026
+
+Concluídas pelo orquestrador as pendências locais identificadas: filtros de investigação da supervisão com métricas separadas dos totais; metadados de consumo OpenAI persistidos e relatório CLI com tarifas opcionais; instrumento CSV/CLI para medir benefício por pares comparáveis; carga HTTP sustentada e atualização da matriz. [Registro completo](product-vision-closure.md), [supervisão](supervisao-filtros.md), [consumo](consumo-ia.md), [benefício](benefit-measurement.md) e [capacidade](capacidade-local.md).
+
+**Build e suíte canônica aprovados:229testes backend +5avaliação offline**, E2E integrado, autenticado, operacional e supervisão desktop/celular, PDS4.10.1/Porsche Next/glifos verificados. Jornada adicional com **OpenAI gpt-6.2-sol real** aprovada:14casos/122eventos, fontes/auditoria e persistência após reiniciar. Consumo auditado de quatro respostas reais:3110tokens, seis outros registros sem medição separados, nenhum preço inventado. Evidências em `output/validation/closure-canonical.log`, `closure-real.log`, `usage-report-real.json` e resultados dos E2Es.
+
+A carga revelou falhas que foram corrigidas em `64de64f` (transação de leitura encerrada antes da projeção, snapshot novo sem cópia redundante, conjuntos para contagem) e `e72d5be` (coordenação das gravações da trilha sem remover verificações). Repetição120s:2508requisições/2508logs,zeroerros,2.000contratos,p95c4=.316s,p95c8=.792s,máximo c8=1.036s; SQLite, cadeias e estado íntegros. Protocolo local sintético, não capacidade corporativa garantida. Falhas anteriores preservadas; pareceres independentes [geral](reviews/general-closure.md), [DBA](reviews/dba-closure.md), [segurança](reviews/security-closure.md), [performance](reviews/performance-closure.md).
+
+Instrumento de benefício preparado e testado, sem resultados humanos inventados. Permanecem participantes/aceite, metodologia/identidade/fontes/hospedagem autorizadas, termos comerciais e revisão final dos anexos. Servidor local atualizado, banco manual preservado; sem publicação/envio. Registros abaixo são históricos e podem descrever pendências já resolvidas por esta rodada.
+
+---
+
 # Evolução paralela pelo orquestrador · 23/11/2026
 
 Implementadas as frentes locais independentes do diagnóstico: avaliação reproduzível de IA/OCR com gabaritos sintéticos e revisão identificada; avisos in-app, filtros de trabalhos, SLA por prazo vigente e recorrência por regra/fornecedor; terceira tipologia experimental de perfil contratual repetido; guardas explícitas de ambiente local e exigência opcional de login; pacote atualizado para revisão da Ana e preparação do piloto/candidatura. Notificações são calculadas ao carregar/atualizar; não há envio externo ou trabalho em segundo plano. Fontes, metodologia e infraestrutura corporativas continuam dependências.

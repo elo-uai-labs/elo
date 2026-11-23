@@ -25,7 +25,7 @@ Checkpoints históricos: **S1 `fb98394`, S2 `4dfb5b5`, S3 `7a86178`, S4 `5c8958a
 
 A rodada anterior entregou importação CSV/XLSX, extração PDF/planilhas, OCR experimental revisado, OpenAI real, correlação, operação de equipes e terceira regra experimental. Evidências e limites atuais em [entrega](entrega.md); os checkpoints abaixo preservam sua data/escopo, não descrevem sozinhos o estado mais recente.
 
-Execução atual: [registro de fechamento](product-vision-closure.md). Amplia supervisão, medição de consumo, instrumento de benefício e ensaio sustentado. Só marcar aceite dessas alterações após testes/revisões. O produto corporativo permanece dependente dos itens externos identificados, mesmo com o escopo local aprovado.
+Execução atual: [registro de fechamento](product-vision-closure.md). Supervisão, medição de consumo e instrumento de benefício implementados; carga HTTP local de 120 s aprovada após correções de projeção e coordenação da trilha. A rodada canônica final e seus resultados constam no registro de fechamento. O produto corporativo permanece dependente dos itens externos identificados, mesmo com o escopo local aprovado.
 
 ## Matriz P0 · demonstração integrada
 
@@ -56,7 +56,7 @@ Execução atual: [registro de fechamento](product-vision-closure.md). Amplia su
 | P1-04 | Perfis/permissões no backend, segregação e identidade verificável | Autenticação local opcional e permissões integradas aprovadas S3 | Provedor corporativo a definir; sem contas padrão, sem SSO homologado |
 | P1-05 | Relatórios gerenciais com IA; cada frase factual ligada à evidência | Relatório governado aprovado S4: reutiliza claims de dossiês revisados | Não faz nova chamada de IA; preserva fontes, modelo, prompt, ressalvas e decisão humana; revisão independente e CAS |
 | P1-06 | Pacotes completos e verificáveis de auditoria | Pacote v2 com estado, eventos, manifesto e bytes dos anexos aprovado S4 | Verificador externo à aplicação, cobertura exata e compatibilidade v1 sem arquivos; sem assinatura externa |
-| P1-07 | Painel de supervisão: concordância, discordância/motivos e alerta de possível aprovação automática | Supervisão implementada e integrada; proveniência de identidade corrigida S3 | Denominadores real/local e históricos separados; heurística não prova automação; filtros avançados em execução nesta retomada; ver registro de fechamento |
+| P1-07 | Painel de supervisão: concordância, discordância/motivos e alerta de possível aprovação automática | Supervisão implementada e integrada; proveniência de identidade corrigida S3 | Denominadores real/local e históricos separados; heurística não prova automação; filtros avançados aprovados localmente em desktop/celular; recorte não altera heurística global |
 | P1-08 | Laboratório sintético com gabarito e medição de acertos/falsos alarmes | Laboratório sintético reproduzível implementado; gabarito independente e métricas por regra | TP/FP/FN/TN e denominadores explícitos; testes alteram resultados para provar contagem; não estima desempenho real |
 | P1-09 | GRC completo: criar/editar riscos, controles, vínculos, tratamento e revisões | Aprovado no checkpoint local S2 | Entidades identificáveis, histórico, arquivamento preservando relações e aprovação dos impactos |
 | P1-10 | Maturidade: dimensões, questionário, evidências, lacunas e avaliação versionada | Aprovado no checkpoint local S2 com metodologia ilustrativa | Resultado reproduzível; metodologia oficial continua dependência externa |
@@ -71,7 +71,7 @@ Execução atual: [registro de fechamento](product-vision-closure.md). Amplia su
 | P2-03 | Simular cenários e impactos no risco sem alterar avaliação vigente | Cenários hipotéticos versionados aprovados S5 | CAS do risco, premissas e comparação; nenhuma alteração automática da avaliação vigente |
 | P2-04 | Memória institucional apresenta casos semelhantes já tratados | Memória de casos semelhantes implementada e aprovada S5 | Critério de similaridade explícito e acesso governado; similaridade não determina decisão |
 | P2-05 | Assistente conversacional com acesso governado aos dados | Consulta governada aprovada S6 em modos local e IA real | Fontes do caso, citações, abstenção, contexto versionado e arquivo auditado; sem ferramentas de decisão |
-| P2-06 | Ampliação de casos de uso, dados e usuários | Backup/restauração local aprovado S6; escala externa pendente | Destinos novos e verificados, origem somente leitura; volume, disponibilidade e infraestrutura ainda não definidos |
+| P2-06 | Ampliação de casos de uso, dados e usuários | Backup/restauração local aprovado S6; carga HTTP local 2.000 contratos/c8 aprovada na retomada; escala externa pendente | Destinos novos e verificados, origem somente leitura; volume, disponibilidade e infraestrutura ainda não definidos |
 
 ## Plano original de sprints e critérios entre etapas
 
