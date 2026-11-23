@@ -13,3 +13,9 @@ node scripts/independent-ai-evaluation.mjs --real --allow-paid --output output/v
 ```
 
 Requer Node24, configuração OpenAI existente e modelo do projeto. A opção paga é explícita, não pertence ao `npm test`. O relatório vincula código, fixture e respostas por hash; a revisão utiliza `scripts/evaluation_review.py` e precisa indicar `independent_agent`, sem alegar homologação humana. Nenhum prompt/runtime é ajustado nesta frente. O resultado desta amostra não permite declarar precisão em população corporativa ou TRL5.
+
+## Primeira execução preservada
+
+Executada após congelamento no commit `b399d05`, com `gpt-6.2-sol`: **18/18 respostas aceitas**, zero falhas, 32/32 afirmações com referências válidas e 18/18 classificações de abstenção conforme o gabarito. Latência p50 3,4409 s e p95/máxima 4,4602 s. Âncoras lexicais: 27/28, sem interpretar a divergência como erro semântico antes da revisão.
+
+Evidências em `output/validation/independent-ai-first/report.json` e `review-template.json`. O relatório preserva casos, fontes, respostas, consumo e hashes. **Revisão semântica ainda pendente neste registro**; referências válidas não comprovam sustentação. Nenhuma chamada repetida ou alteração de prompt foi realizada.
