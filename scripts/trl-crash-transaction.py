@@ -33,7 +33,14 @@ def worker(db_path, marker):
 
 def main():
     if len(sys.argv) == 4 and sys.argv[1] == '--worker':
-        worker(Path(sys.argv[2]), Path(sys.argv[3]))
+        db_path, marker = Path(sys.argv[2]), Path(sys.argv[3])
+        folder = db_path.parent
+        if (folder.resolve().parent != Path(tempfile.gettempdir()).resolve()
+                or not folder.name.startswith('elo-transaction-crash-')
+                or db_path.name != 'test.sqlite3' or marker != folder/'pause'
+                or db_path.is_symlink() or marker.is_symlink() or not db_path.is_file()):
+            raise SystemExit('Worker aceita somente o diretório temporário do ensaio.')
+        worker(db_path, marker)
         return
     if len(sys.argv) != 1:
         raise SystemExit('Este ensaio cria seu próprio banco temporário; não aceita banco externo.')
