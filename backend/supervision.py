@@ -49,8 +49,23 @@ def summary(snapshot):
                            "rule": "five-fast-accepts-v1",
                            "reason": "As últimas cinco revisões aceitaram a sugestão em menos de 10 segundos após o registro do dossiê. Verifique o contexto da supervisão; isso não comprova aprovação automática."})
     review_events = [event for event in snapshot.get("audit", []) if event["action"] == "Decisão humana registrada"]
+    # One pass over history; do not rescan the entire audit for every current case.
+    def review_key(case_id, decision):
+        return (case_id, decision.get("dossier_revision"), decision.get("actor"), decision.get("review"))
+    indexed_events = {review_key(event.get("details", {}).get("case_id"),
+                                 {**event.get("details", {}), "actor": event.get("actor")}): event
+                      for event in review_events}
+    records = []
+    for case in cases:
+        decision = case.get("decision")
+        if not decision:
+            continue
+        event = indexed_events.get(review_key(case["id"], decision), {})
+        records.append({"case_id": case["id"], "mode": case.get("dossier", {}).get("mode", "unknown"),
+                        **decision, "at": event.get("at"),
+                        "identity_mode": "local-auth" if event.get("authentication", {}).get("mode") == "local-auth" else "local-demo"})
     authenticated = sum(event.get("authentication", {}).get("mode") == "local-auth" for event in review_events)
-    return {"groups": groups, "pending": sum(not case.get("decision") for case in cases),
+    return {"records": records, "groups": groups, "pending": sum(not case.get("decision") for case in cases),
             "total_cases": len(cases), "alerts": alerts,
             "identity_counts": {"authenticated_decisions": authenticated,
                                 "legacy_or_declared_decisions": len(review_events) - authenticated},

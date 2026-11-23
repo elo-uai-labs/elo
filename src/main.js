@@ -29,6 +29,7 @@ let importRequest;
 let sending = false;
 let laboratoryResult;
 let supervisionResult;
+let supervisionFilters = { mode: 'all', review: 'all', actor: 'all', identity: 'all', query: '', start: '', end: '' };
 let insights;
 let insightsError = '';
 let workSummary;
@@ -71,7 +72,7 @@ function loginScreen() {
 }
 
 function permissionReason(endpoint, form) {
-  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'work/summary', 'work-filter', 'logout'].includes(endpoint)) return '';
+  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'work/summary', 'work-filter', 'supervision-filter', 'logout'].includes(endpoint)) return '';
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
@@ -423,10 +424,39 @@ function ratio(value) {
   return value == null ? 'Sem denominador' : `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
 
+function supervisionFiltersPanel(result) {
+  const records = result.records || [];
+  const f = supervisionFilters;
+  const filtered = records.filter(item => {
+    const timestamp = item.at ? Date.parse(item.at) : NaN;
+    const date = Number.isFinite(timestamp) ? new Date(timestamp).toISOString().slice(0, 10) : '';
+    return (f.mode === 'all' || item.mode === f.mode) && (f.review === 'all' || item.review === f.review)
+      && (f.actor === 'all' || item.actor === f.actor) && (f.identity === 'all' || item.identity_mode === f.identity)
+      && (!f.start || (date && date >= f.start)) && (!f.end || (date && date <= f.end))
+      && `${item.case_id} ${item.reason || ''}`.toLocaleLowerCase('pt-BR').includes(f.query.toLocaleLowerCase('pt-BR'));
+  });
+  const actors = [...new Set(records.map(item => item.actor).filter(Boolean))].sort();
+  return `<div class="stack" data-testid="supervision-filter-panel"><p-heading tag="h3" size="md">Investigar revisões</p-heading>
+    <p-text size="sm">Filtros aplicados às decisões vigentes por caso. Datas inclusivas em UTC; registros sem data são excluídos quando há período. Os indicadores gerais e a heurística abaixo mantêm o universo completo, incluindo o histórico.</p-text>
+    <form class="form" data-endpoint="supervision-filter"><div class="form-grid">
+    ${selectField('supervision-mode', 'mode', 'Filtrar origem da síntese', [['all', 'Todas as origens'], ['real', 'IA real'], ['local', 'Síntese local'], ['unknown', 'Origem desconhecida']], f.mode)}
+    ${selectField('supervision-review', 'review', 'Filtrar revisão da sugestão', [['all', 'Todas as revisões'], ['accept', 'Aceitou a sugestão'], ['adjust', 'Ajustou a sugestão'], ['reject', 'Rejeitou a sugestão']], f.review)}
+    ${selectField('supervision-actor', 'actor', 'Filtrar autor da decisão', [['all', 'Todos os autores'], ...actors.map(actor => [actor, actor])], f.actor)}
+    ${selectField('supervision-identity', 'identity', 'Filtrar origem da identidade', [['all', 'Todas as identidades'], ['local-auth', 'Autenticada local'], ['local-demo', 'Legada ou autodeclarada']], f.identity)}
+    <p-input-date name="start" label="Decisões desde (UTC, opcional)" value="${escape(f.start)}"></p-input-date>
+    <p-input-date name="end" label="Decisões até (UTC, opcional)" value="${escape(f.end)}"></p-input-date></div>
+    <p-input-text name="query" label="Buscar caso ou justificativa (opcional)" value="${escape(f.query)}" max-length="160"></p-input-text>
+    <p-button type="submit" variant="secondary" icon="none">Aplicar filtros de supervisão</p-button></form>
+    <p-text data-testid="supervision-filter-count">${filtered.length} de ${records.length} decisões vigentes correspondem aos filtros.</p-text>
+    ${['real', 'local'].map(mode => { const items = filtered.filter(item => item.mode === mode); const accepted = items.filter(item => item.review === 'accept').length; return `<p-text size="sm">${mode === 'real' ? 'IA real' : 'Síntese local'} no recorte: ${accepted}/${items.length} aceitações · ${ratio(items.length ? accepted / items.length : null)}. Taxa descritiva condicionada aos filtros.</p-text>`; }).join('')}
+    ${filtered.length ? `<p-text-list>${filtered.slice(0, 100).map(item => `<p-text-list-item data-testid="supervision-record">${escape(item.case_id)} · ${escape(item.actor || 'Autor não informado')} · ${format(item.review)} · ${item.mode === 'real' ? 'IA real' : item.mode === 'local' ? 'Síntese local' : 'Origem desconhecida'} · ${item.identity_mode === 'local-auth' ? 'Autenticada local' : 'Legada ou autodeclarada'} · ${escape(item.at || 'Data não disponível')} · ${escape(item.reason)}</p-text-list-item>`).join('')}</p-text-list>${filtered.length > 100 ? '<p-text size="sm">Exibidas as primeiras 100 decisões; refine os filtros para consultar as demais.</p-text>' : ''}` : '<p-text>Nenhuma decisão corresponde aos filtros.</p-text>'}
+    </div>`;
+}
+
 function supervisionPanel() {
   const result = supervisionResult;
   return panel('Indicadores de supervisão', `<form class="form" data-endpoint="supervision/read"><div class="actions"><p-button variant="secondary" icon="none" type="submit">Atualizar indicadores de supervisão</p-button></div></form>
-    ${result ? `<div class="stack" data-testid="supervision-summary"><p-text size="sm">${escape(result.methodology)}</p-text><p-text size="sm" color="contrast-high">${escape(result.identity_scope)}</p-text>
+    ${result ? `${supervisionFiltersPanel(result)}<div class="stack" data-testid="supervision-summary"><p-heading tag="h3" size="md">Indicadores gerais sem filtros</p-heading><p-text size="sm">${escape(result.methodology)}</p-text><p-text size="sm" color="contrast-high">${escape(result.identity_scope)}</p-text>
       <p-text>${result.pending} revisão(ões) pendente(s) em ${result.total_cases} caso(s).</p-text>
       ${result.identity_counts ? `<p-text size="sm">Decisões com identidade autenticada: ${result.identity_counts.authenticated_decisions} · Decisões legadas ou autodeclaradas: ${result.identity_counts.legacy_or_declared_decisions}</p-text>` : ''}
       ${result.groups.map((group) => `<div class="decision-block"><p-heading tag="h3" size="md">${group.mode === 'real' ? 'IA real' : 'Síntese local'}</p-heading>
@@ -1136,7 +1166,11 @@ view.addEventListener('submit', async (event) => {
       workSummaryError = '';
       workFilters = { status: 'all', priority: 'all', owner: 'all', deadline: 'all', query: '' };
       supervisionResult = undefined;
+      supervisionFilters = { mode: 'all', review: 'all', actor: 'all', identity: 'all', query: '', start: '', end: '' };
       laboratoryResult = undefined;
+    } else if (endpoint === 'supervision-filter') {
+      if (payload.start && payload.end && payload.start > payload.end) throw new Error('A data inicial deve ser anterior ou igual à data final.');
+      supervisionFilters = { mode: payload.mode, review: payload.review, actor: payload.actor, identity: payload.identity, query: (payload.query || '').trim(), start: payload.start || '', end: payload.end || '' };
     } else if (endpoint === 'work-filter') {
       workFilters = { status: payload.status, priority: payload.priority, owner: payload.owner, deadline: payload.deadline, query: (payload.query || '').trim() };
     } else if (endpoint === 'work/summary') {
@@ -1159,7 +1193,7 @@ view.addEventListener('submit', async (event) => {
       if (endpoint === 'evidence/upload') selectedFiles.delete(form.getAttribute('data-upload-key'));
       supervisionResult = undefined;
     }
-    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read', 'work/summary', 'work-filter'].includes(endpoint)) await Promise.all([refreshInsights(), refreshWorkSummary()]);
+    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read', 'work/summary', 'work-filter', 'supervision-filter'].includes(endpoint)) await Promise.all([refreshInsights(), refreshWorkSummary()]);
     if (state) selectedCaseId = state.case?.id || null;
     const url = new URL(location.href);
     if (selectedCaseId) url.searchParams.set('case_id', selectedCaseId);

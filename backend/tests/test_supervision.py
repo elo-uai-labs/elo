@@ -40,6 +40,22 @@ class SupervisionTest(unittest.TestCase):
         events[-1]["at"] = "2026-11-22T10:01:00+00:00"
         self.assertEqual(summary(state)["alerts"], [])
 
+    def test_records_preserve_current_revision_and_identity_without_backfilling(self):
+        decision = {"actor": "Ana Demo", "review": "adjust", "reason": "Conferir original", "dossier_revision": "current"}
+        event = {"action": "Decisão humana registrada", "actor": "Ana Demo", "seq": 2,
+                 "at": "2026-11-23T13:00:00+00:00", "details": {"case_id": "C1", **decision},
+                 "authentication": {"mode": "local-auth"}}
+        snapshot = {"audit_valid": True, "audit": [event], "cases": [
+            {"id": "C1", "dossier": {"mode": "real"}, "decision": decision},
+            {"id": "C2", "dossier": {"mode": "local"}, "decision": decision}]}
+        records = summary(snapshot)["records"]
+        self.assertEqual(records[0]["identity_mode"], "local-auth")
+        self.assertEqual(records[0]["at"], event["at"])
+        self.assertEqual(records[1]["identity_mode"], "local-demo")
+        self.assertIsNone(records[1]["at"])
+        event["details"]["dossier_revision"] = "old"
+        self.assertIsNone(summary(snapshot)["records"][0]["at"])
+
     def test_invalid_audit_is_rejected(self):
         with self.assertRaises(WorkflowError):
             summary({"audit_valid": False})
