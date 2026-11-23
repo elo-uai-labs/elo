@@ -1,5 +1,6 @@
 """HTTP authentication is optional and enforces identity and authorization server-side."""
 import json
+import base64
 import sys
 import tempfile
 import threading
@@ -65,7 +66,7 @@ class AuthServerTest(unittest.TestCase):
         return cookie, state
 
     def test_session_auth_protection_cookie_logout_expiry(self):
-        for path in ('/api/state', '/api/audit/export', '/api/supervision', '/api/laboratory', '/api/people'):
+        for path in ('/api/state', '/api/audit/export', '/api/supervision', '/api/laboratory', '/api/people', '/api/evidence/EVD-0001'):
             self.assertEqual(self.request(path=path)[0], 401)
         status, _, state = self.request(path='/api/session')
         self.assertEqual(state, {'auth_required': True, 'authenticated': False, 'user': None, 'mode': 'local-auth'})
@@ -120,6 +121,29 @@ class AuthServerTest(unittest.TestCase):
         reviewer = self.login('bob')
         self.assertEqual(self.request('POST', '/api/action/close', payload, reviewer)[0], 200)
         self.assertEqual(self.store.read()['actions'][0]['status'], 'done')
+
+    def test_protected_evidence_and_report_review_workflow(self):
+        analyst, state = self.qualified()
+        payload = {'case_id': 'ELO-1042', 'actor': 'admin', 'name': 'ata.txt', 'media_type': 'text/plain',
+                   'description': 'Fonte sintética', 'synthetic': True, 'content_base64': base64.b64encode(b'Ata sintetica').decode()}
+        status, _, state = self.request('POST', '/api/evidence/upload', payload, analyst)
+        self.assertEqual(status, 200)
+        self.assertEqual(state['attachments'][0]['actor'], 'alice')
+        worker = self.login('worker')
+        self.assertEqual(self.request('POST', '/api/evidence/upload', payload, worker)[0], 403)
+        status, _, state = self.request('POST', '/api/report/create', {'actor': 'admin', 'title': 'Relatório sintético', 'case_ids': ['ELO-1042']}, analyst)
+        self.assertEqual(status, 200)
+        report = state['reports'][0]
+        self.assertEqual(report['creator'], 'alice')
+        self.assertEqual(report['status'], 'draft')
+        review = {'id': report['id'], 'report_revision': report['revision'], 'actor': 'bob', 'outcome': 'approved', 'reason': 'Fontes conferidas'}
+        self.assertEqual(self.request('POST', '/api/report/review', review, analyst)[0], 403)
+        reviewer = self.login('bob')
+        status, _, state = self.request('POST', '/api/report/review', review, reviewer)
+        self.assertEqual(status, 200)
+        self.assertEqual(state['reports'][0]['status'], 'approved')
+        self.assertEqual(state['reports'][0]['review']['actor'], 'bob')
+        self.assertTrue(state['audit_valid'])
 
     def test_login_origin_and_invalid_config_fail_closed(self):
         self.assertEqual(self.request('POST', '/api/login', {'username': 'alice', 'password': self.secret}, headers={'Origin': 'https://evil.example'})[0], 403)

@@ -15,7 +15,7 @@ probe.listen(0, '127.0.0.1');
 await once(probe, 'listening');
 const port = probe.address().port;
 await new Promise((resolve) => probe.close(resolve));
-const credentials = Object.fromEntries(['analyst', 'reviewer', 'operator', 'auditor'].map((role) => [role, randomBytes(24).toString('base64url')]));
+const credentials = Object.fromEntries(['analyst', 'reviewer', 'operator', 'auditor', 'admin'].map((role) => [role, randomBytes(24).toString('base64url')]));
 const url = `http://127.0.0.1:${port}`;
 const env = { ...process.env, ELO_API_PORT: String(port), ELO_DB: path.join(temporary, 'auth.sqlite3'), ELO_URL: url,
   ELO_AUTH_USERS_FILE: path.join(temporary, 'users.json'), ELO_TEST_AUTH_PASSWORDS: JSON.stringify(credentials),
@@ -31,7 +31,7 @@ async function run(command, args) {
 try {
   await run('python3', ['-c', `import os,json
 from access import provision
-names={'analyst':'Analista Sintético','reviewer':'Revisora Sintética','operator':'Operador Sintético','auditor':'Auditoria Sintética'}
+names={'analyst':'Analista Sintético','reviewer':'Revisora Sintética','operator':'Operador Sintético','auditor':'Auditoria Sintética','admin':'Administração Sintética'}
 for role,password in json.loads(os.environ['ELO_TEST_AUTH_PASSWORDS']).items():
     provision(os.environ['ELO_AUTH_USERS_FILE'],role,names[role],[role],password)
 `]);

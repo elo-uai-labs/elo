@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from domain import WorkflowError, initial_state, serialize
+from evidence import MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES
 
 FORMAT = "elo-audit-v2"
 
@@ -19,6 +20,11 @@ def verify_export(package):
     """Recompute every event and the terminal state without accessing a database."""
     try:
         if package["format"] not in {"elo-audit-v1", FORMAT}:
+            return False
+        keys = {"format", "state", "events", "manifest"}
+        if package["format"] == FORMAT:
+            keys.add("files")
+        if set(package) != keys:
             return False
         state, events = package["state"], package["events"]
         manifest = package["manifest"]
@@ -44,13 +50,18 @@ def verify_export(package):
                 return False
         else:
             files = package["files"]
-            if not isinstance(files, list):
+            if not isinstance(files, list) or len(files) > MAX_FILES:
                 return False
             metadata = {item["id"]: item for item in state.get("attachments", [])}
             if len(metadata) != len(state.get("attachments", [])) or len(files) != len(metadata):
                 return False
+            sizes = [item["size"] for item in metadata.values()]
+            if any(type(size) is not int or not 1 <= size <= MAX_FILE_BYTES for size in sizes) or sum(sizes) > MAX_TOTAL_BYTES:
+                return False
             seen = set()
             for item in files:
+                if set(item) != {"id", "content_base64"} or not isinstance(item["content_base64"], str) or len(item["content_base64"]) > ((MAX_FILE_BYTES + 2) // 3) * 4:
+                    return False
                 identifier = item["id"]
                 if identifier in seen or identifier not in metadata:
                     return False

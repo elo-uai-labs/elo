@@ -224,10 +224,11 @@ def action_transition(state, command, data, case):
         raise WorkflowError('Informe uma evidência com até 500 caracteres.')
     evidence = evidence.strip()
     if status in ('closure_requested', 'done'):
-        if not evidence:
-            raise WorkflowError('Registre uma evidência para solicitar o encerramento.')
+        attachment_ids = [row['id'] for row in state.get('attachments', []) if row.get('action_id') == item['id'] and row['case_id'] == case['id']]
+        if not evidence and not attachment_ids:
+            raise WorkflowError('Registre uma evidência textual ou anexe um arquivo ao plano para solicitar o encerramento.')
         status = 'closure_requested'
-        item['closure_request'] = {'actor': actor, 'evidence': evidence}
+        item['closure_request'] = {'actor': actor, 'evidence': evidence, 'attachment_ids': attachment_ids}
         item.pop('closure_review', None)
     item.update(status=status, evidence=evidence)
     stamp(item)

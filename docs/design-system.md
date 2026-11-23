@@ -24,3 +24,7 @@ A folha `@porsche-design-system/components-js/index.css` inclui os `@font-face` 
 Evidências: `output/validation/typography.jsonl` e capturas desktop/mobile. A verificação cobre títulos, texto corrido, indicadores e rótulos; o inventário de componentes é checado em todas as quatro telas.
 
 Fontes oficiais: [Integração](https://designsystem.porsche.com/v4/developing/vanilla-js/getting-started/), [Font face](https://designsystem.porsche.com/v4/stylesheets/font-face/), [Componentes](https://designsystem.porsche.com/v4/components/introduction/).
+
+## Seleção de arquivos
+
+O catálogo `componentMeta` da versão 4.10.1 não oferece componente de arquivo/upload. A interface usa `p-button` oficial para abrir um `input type="file" hidden data-native-file-picker`, limitado ao seletor nativo da plataforma; nome, descrição, confirmação sintética e feedback usam componentes PDS. Não há controle nativo visível ou réplica CSS. O teste de controles permite somente esse seletor oculto, com os três atributos exatos, e valida abertura por teclado.

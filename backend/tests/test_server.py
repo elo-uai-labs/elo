@@ -1,4 +1,5 @@
 import json
+import base64
 import sys
 import tempfile
 import threading
@@ -66,6 +67,24 @@ class ServerTest(unittest.TestCase):
         self.assertIsNone(self.store.read()["case"]["dossier"])
         self.assertEqual(self.request(path="/api/state?case_id=missing")[0], 409)
         self.assertEqual(self.request(path="/api/audit/export")[0], 200)
+
+    def test_evidence_http_forces_download_and_export_has_bytes(self):
+        self.request("POST", "/api/detect", {})
+        payload = {"case_id": "ELO-1042", "actor": "Analista", "name": "ata.txt", "media_type": "text/plain",
+                   "description": "Evidência sintética", "synthetic": True, "content_base64": base64.b64encode(b"Ata sintetica").decode()}
+        status, _, body = self.request("POST", "/api/evidence/upload", payload)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["attachments"][0]["id"], "EVD-0001")
+        status, headers, body = self.request(path="/api/evidence/EVD-0001")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"Ata sintetica")
+        self.assertEqual(headers["Content-Disposition"], 'attachment; filename="EVD-0001.txt"')
+        self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+        status, _, body = self.request(path="/api/audit/export")
+        self.assertEqual(status, 200)
+        package = json.loads(body)
+        self.assertEqual(package["files"][0]["content_base64"], payload["content_base64"])
+        self.assertEqual(self.request(path="/api/evidence/EVD-9999")[0], 404)
 
     def test_rejects_untrusted_origin_and_host_without_writes(self):
         for origin in ("https://attacker.example", "null", "http://127.0.0.1:51730"):

@@ -7,7 +7,7 @@ const baseUrl = process.env.ELO_URL;
 const passwords = JSON.parse(process.env.ELO_TEST_AUTH_PASSWORDS || '{}');
 const output = path.resolve('output/validation');
 fs.mkdirSync(output, { recursive: true });
-const names = { analyst: 'Analista Sintético', reviewer: 'Revisora Sintética', operator: 'Operador Sintético', auditor: 'Auditoria Sintética' };
+const names = { analyst: 'Analista Sintético', reviewer: 'Revisora Sintética', operator: 'Operador Sintético', auditor: 'Auditoria Sintética', admin: 'Administração Sintética' };
 const errors = [];
 const input = (page, selector) => page.locator(selector).locator('input,textarea');
 async function choose(control, name) {
@@ -51,7 +51,7 @@ async function main() {
       pages[role] = await browser.newPage({ viewport: { width: 1440, height: 950 }, locale: 'pt-BR' });
       pages[role].on('pageerror', (error) => errors.push(error.message));
     }
-    const { analyst, reviewer, operator, auditor } = pages;
+    const { analyst, reviewer, operator, auditor, admin } = pages;
     await analyst.goto(baseUrl);
     await analyst.getByRole('heading', { name: 'Entrar no Elo', exact: true }).waitFor();
     assert.equal((await analyst.request.get(`${baseUrl}/api/state`)).status(), 401);
@@ -102,9 +102,25 @@ async function main() {
     }
     await login(operator, 'operator', '#governanca');
     const action = operator.getByTestId('action-item');
+    await action.getByRole('heading', { name: 'Anexar evidência de execução', exact: true }).click();
+    const upload = action.locator('form[data-endpoint="evidence/upload"]');
+    const chooserEvent = operator.waitForEvent('filechooser');
+    await upload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).press('Enter');
+    const evidenceBytes = Buffer.from('Evidência sintética EXEC-01 anexada pelo executor autenticado.\n');
+    await (await chooserEvent).setFiles({ name: 'execucao-sintetica.txt', mimeType: 'text/plain', buffer: evidenceBytes });
+    await upload.getByLabel('Descrição e relação com o caso').fill('Comprovação fictícia da execução do plano atribuído.');
+    await upload.getByLabel('Confirmo que o arquivo contém somente dados fictícios').check();
+    await upload.getByRole('button', { name: 'Anexar evidência', exact: true }).click();
+    await action.getByRole('link', { name: 'Baixar execucao-sintetica.txt', exact: true }).waitFor();
+    const evidenceState = await (await operator.request.get(`${baseUrl}/api/state`)).json();
+    assert.equal(evidenceState.attachments[0].actor, 'operator');
+    const download = await operator.request.get(`${baseUrl}/api/evidence/${evidenceState.attachments[0].id}`);
+    assert.equal(download.status(), 200);
+    assert.match(download.headers()['content-disposition'], /^attachment;/);
+    assert.deepEqual(await download.body(), evidenceBytes);
     await action.getByRole('heading', { name: 'Atualizar andamento', exact: true }).click();
     await choose(action.locator('p-select[name=status]'), 'Aguardando aprovação de encerramento');
-    await action.getByLabel('Evidência de execução').fill('Evidência sintética EXEC-01 registrada pela conta atribuída.');
+    await action.getByLabel('Evidência de execução').fill('');
     await action.getByRole('button', { name: 'Salvar andamento', exact: true }).click();
     await action.locator('.badge').getByText('Aguardando aprovação de encerramento', { exact: true }).waitFor();
     assert.equal(await operator.locator('form[data-endpoint="action/close"]').count(), 0);
@@ -116,11 +132,44 @@ async function main() {
     await reviewer.getByTestId('action-item').getByText('Concluído', { exact: true }).waitFor();
     state = await (await reviewer.request.get(`${baseUrl}/api/state`)).json();
     assert.equal(state.actions[0].closure_request.actor, 'operator');
+    assert.deepEqual(state.actions[0].closure_request.attachment_ids, [evidenceState.attachments[0].id]);
     assert.equal(state.actions[0].closure_review.actor, 'reviewer');
     assert.equal(state.audit_valid, true);
     assert.deepEqual(state.audit.at(-1).authentication, { mode: 'local-auth', user_id: 'reviewer' });
     await reviewer.getByTestId('audit-event').getByText('Identidade local autenticada', { exact: true }).first().waitFor();
     await reviewer.screenshot({ path: path.join(output, 'desktop-auth-governance.png'), fullPage: true });
+    await login(admin, 'admin', '#governanca');
+    await admin.getByRole('heading', { name: 'Novo relatório gerencial', exact: true }).click();
+    const createReport = admin.getByTestId('report-create');
+    await createReport.getByLabel('Título do relatório').fill('Relatório sintético supervisionado');
+    await createReport.getByLabel('ELO-1042 · Fragilidade registrada').check();
+    await createReport.getByRole('button', { name: 'Criar rascunho de relatório', exact: true }).click();
+    await admin.getByTestId('report-RPT-001').getByText('Relatório sintético supervisionado · RPT-001', { exact: true }).waitFor();
+    const report = (await (await admin.request.get(`${baseUrl}/api/state`)).json()).reports[0];
+    assert.equal(report.creator, 'admin');
+    assert.equal(await admin.locator('form[data-endpoint="report/review"]').count(), 0);
+    const selfReview = await admin.request.post(`${baseUrl}/api/report/review`, { data: { id: report.id, report_revision: report.revision, outcome: 'approved', reason: 'Autoaprovação indevida.' } });
+    assert.equal(selfReview.status(), 403);
+    assert.equal((await selfReview.json()).error, 'O relatório exige revisor diferente de quem criou o rascunho.');
+    await reviewer.goto(`${baseUrl}/#governanca`);
+    const reviewReport = reviewer.getByTestId('review-RPT-001');
+    await choose(reviewReport.locator('p-select[name=outcome]'), 'Aprovar relatório');
+    await reviewReport.getByLabel('Justificativa da revisão do relatório').fill('Revisão independente das afirmações, fontes e decisões preservadas.');
+    await reviewReport.getByRole('button', { name: 'Registrar revisão do relatório', exact: true }).click();
+    await reviewer.getByTestId('report-RPT-001').locator('.badge').getByText('Aprovado', { exact: true }).waitFor();
+    const approved = (await (await reviewer.request.get(`${baseUrl}/api/state`)).json()).reports[0];
+    assert.equal(approved.review.actor, 'reviewer');
+    const claims = await reviewer.getByTestId('report-RPT-001').getByTestId('report-claims').locator('p-text-list-item').allTextContents();
+    approved.cases[0].claims.forEach((claim, index) => claim.source_ids.forEach((id) => assert.ok(claims[index].includes(id))));
+    const exported = await (await reviewer.request.get(`${baseUrl}/api/audit/export`)).json();
+    assert.equal(exported.format, 'elo-audit-v2');
+    assert.equal(exported.files.length, 1);
+    assert.deepEqual(Buffer.from(exported.files[0].content_base64, 'base64'), evidenceBytes);
+    const exportPath = path.join(output, 'auth-audit-package.json');
+    fs.writeFileSync(exportPath, JSON.stringify(exported));
+    const verification = require('node:child_process').spawnSync('python3', ['backend/audit_export.py', exportPath], { encoding: 'utf8' });
+    assert.equal(verification.status, 0, verification.stdout || verification.stderr);
+
 
     await login(auditor, 'auditor', '#governanca');
     assert.equal(await auditor.locator('form[data-endpoint="action"]').count(), 0);
@@ -154,7 +203,7 @@ async function main() {
     await mobile.getByRole('button', { name: 'Entrar', exact: true }).tap();
     await mobile.getByText('Limite de tentativas atingido. Aguarde um minuto.', { exact: true }).waitFor();
     assert.deepEqual(errors, []);
-    console.log('Elo auth: quatro perfis, autoria canônica, segregação, atribuição, 401/429, logout e login móvel PDS verificados.');
+    console.log('Elo auth: perfis, anexos reais, revisão de relatórios, autoria canônica, segregação, atribuição, 401/429, logout e login móvel PDS verificados.');
   } finally { await browser.close(); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

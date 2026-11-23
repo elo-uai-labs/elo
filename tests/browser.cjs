@@ -35,7 +35,7 @@ async function verifyDesignSystem(page, selectors) {
   }), selectors);
   const nativeControls = await page.evaluate(() => Array.from(document.querySelectorAll(
     'a[href], button, select, textarea, input:not([type=hidden]), ul, ol, h1, h2, h3, details'
-  )).filter((element) => !element.matches('p-tabs-bar > a')).map((element) => element.outerHTML));
+  )).filter((element) => !element.matches('p-tabs-bar > a, input[type=file][hidden][data-native-file-picker]')).map((element) => element.outerHTML));
   assert.deepEqual(nativeControls, [], 'A interface deve usar o componente oficial quando há equivalente no PDS.');
 }
 
@@ -182,6 +182,30 @@ async function runDesktop(browser, pageErrors) {
   await page.getByRole('button', { name: 'Criar plano de ação' }).click();
   const action = page.getByTestId('action-item');
   await action.getByText('Revisar a rotina de declaração', { exact: true }).waitFor();
+  await action.getByRole('heading', { name: 'Anexar evidência de execução', exact: true }).click();
+  let upload = action.locator('form[data-endpoint="evidence/upload"]');
+  let chooserEvent = page.waitForEvent('filechooser');
+  await upload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).press('Enter');
+  await (await chooserEvent).setFiles({ name: 'grande.txt', mimeType: 'text/plain', buffer: Buffer.alloc(1048577, 65) });
+  await page.getByText('O arquivo excede o limite de 1 MiB.', { exact: true }).waitFor();
+  const evidenceBytes = Buffer.from('Ata sintética DEMO-01. Arquivo fictício para a jornada Elo.\n', 'utf8');
+  chooserEvent = page.waitForEvent('filechooser');
+  await upload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).press('Enter');
+  await (await chooserEvent).setFiles({ name: 'ata-sintetica.txt', mimeType: 'text/plain', buffer: evidenceBytes });
+  await upload.getByText(`ata-sintetica.txt · ${evidenceBytes.length} bytes`, { exact: true }).waitFor();
+  await upload.getByLabel('Descrição e relação com o caso').fill('Ata fictícia que documenta a execução da revisão.');
+  await upload.getByLabel('Responsável pelo anexo').fill('Marco Demo');
+  await upload.getByLabel('Confirmo que o arquivo contém somente dados fictícios').check();
+  await upload.getByRole('button', { name: 'Anexar evidência', exact: true }).click();
+  await action.getByRole('link', { name: 'Baixar ata-sintetica.txt', exact: true }).waitFor();
+  const downloadEvent = page.waitForEvent('download');
+  await action.getByRole('link', { name: 'Baixar ata-sintetica.txt', exact: true }).click();
+  const evidenceDownload = await downloadEvent;
+  const evidencePath = path.join(output, 'evidence-download.txt');
+  await evidenceDownload.saveAs(evidencePath);
+  assert.deepEqual(fs.readFileSync(evidencePath), evidenceBytes);
+  const uploadedState = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  assert.equal(uploadedState.attachments[0].sha256, require('node:crypto').createHash('sha256').update(evidenceBytes).digest('hex'));
   await verifyDesignSystem(page, ['p-input-date', 'p-accordion', 'p-text-list', 'p-tag', 'p-button']);
   await action.getByText('Atualizar andamento', { exact: true }).click();
   await choose(action.locator('p-select[name=status]'), 'Em andamento');
@@ -334,6 +358,9 @@ async function runExpanded(browser, pageErrors) {
   const packageData = JSON.parse(fs.readFileSync(exportPath, 'utf8'));
   assert.ok(['elo-audit-v1', 'elo-audit-v2'].includes(packageData.format));
   assert.equal(packageData.state.cases.length, 3);
+  assert.equal(packageData.files.length, 1);
+  assert.equal(packageData.state.attachments.length, 1);
+  assert.deepEqual(Buffer.from(packageData.files[0].content_base64, 'base64'), fs.readFileSync(path.join(output, 'evidence-download.txt')));
   assert.equal(packageData.manifest.event_count, afterNoMatch.audit.length);
   const { spawnSync } = require('node:child_process');
   const verify = spawnSync('python3', ['backend/audit_export.py', exportPath], { encoding: 'utf8' });
@@ -460,6 +487,33 @@ async function runGovernance(browser, pageErrors) {
   await save(form, 'Salvar responsável e prazo');
   await action.getByText(/Nova Executora Demo · Prazo 2027-03-01/).waitFor();
 
+  await page.getByRole('heading', { name: 'Novo relatório gerencial', exact: true }).click();
+  form = page.getByTestId('report-create');
+  await form.getByLabel('Título do relatório').fill('Relatório sintético com concordância e rejeição');
+  await form.getByLabel('ELO-1042 · Fragilidade registrada').check();
+  await form.getByLabel('ELO-2002 · Descartado').check();
+  await form.getByLabel('Responsável pela compilação').fill('Relatora Demo');
+  await save(form, 'Criar rascunho de relatório');
+  let report = (await snapshot()).reports[0];
+  assert.equal(report.cases[1].claim_status, 'excluded_by_human_rejection');
+  assert.deepEqual(report.cases[1].claims, []);
+  const reportCard = page.getByTestId(`report-${report.id}`);
+  const reportClaims = await reportCard.getByTestId('report-claims').locator('p-text-list-item').allTextContents();
+  report.cases[0].claims.forEach((claim, index) => {
+    assert.ok(reportClaims[index].includes(claim.text));
+    claim.source_ids.forEach((id) => assert.ok(reportClaims[index].includes(id)));
+  });
+  await reportCard.getByRole('heading', { name: 'Fontes preservadas · ELO-1042', exact: true }).click();
+  await reportCard.getByText(/"id": "CTR-1042"/).waitFor();
+  const reviewReport = reportCard.locator('form[data-endpoint="report/review"]');
+  await choose(reviewReport.locator('p-select[name=outcome]'), 'Aprovar relatório');
+  await reviewReport.getByLabel('Revisor do relatório').fill('Revisora de Relatório Demo');
+  await reviewReport.getByLabel('Justificativa da revisão do relatório').fill('Afirmações, decisões humanas, fontes e limitações conferidas.');
+  await save(reviewReport, 'Registrar revisão do relatório');
+  assert.equal((await snapshot()).reports[0].status, 'approved');
+  await page.getByTestId('report-RPT-001').getByRole('heading', { name: 'Relatório sintético com concordância e rejeição · RPT-001', exact: true }).scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-report.png') });
   await page.getByRole('button', { name: 'Atualizar indicadores de supervisão', exact: true }).click();
   await page.getByTestId('supervision-summary').getByText('Síntese local', { exact: true }).waitFor();
   await page.getByTestId('supervision-summary').getByText(/Código sintético compartilhado por coincidência/).waitFor();
@@ -510,6 +564,25 @@ async function runGovernance(browser, pageErrors) {
   await mobile.getByTestId('assessments').getByText(/AVA-002/).waitFor();
   assert.equal((await (await mobile.request.get(`${baseUrl}/api/state`)).json()).assessments.at(-1).actor, 'Revisora Mobile Demo');
   assert.equal((await (await mobile.request.get(`${baseUrl}/api/state`)).json()).assessments.at(-1).score, 60);
+  await mobile.goto(`${baseUrl}/#governanca`);
+  await mobile.getByRole('heading', { name: 'Anexar arquivo ao caso', exact: true }).tap();
+  const mobileUpload = mobile.getByTestId('upload-ELO-1042-case');
+  const mobileFileChooser = mobile.waitForEvent('filechooser');
+  await mobileUpload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).tap();
+  await (await mobileFileChooser).setFiles({ name: 'nota-mobile.txt', mimeType: 'text/plain', buffer: Buffer.from('Nota sintética anexada no celular.') });
+  await mobileUpload.getByLabel('Descrição e relação com o caso').fill('Nota fictícia do caso registrada em dispositivo móvel.');
+  await mobileUpload.getByLabel('Responsável pelo anexo').fill('Analista Mobile Demo');
+  await mobileUpload.getByLabel('Confirmo que o arquivo contém somente dados fictícios').check();
+  await mobileUpload.getByRole('button', { name: 'Anexar evidência', exact: true }).scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  await mobile.screenshot({ path: path.join(output, 'mobile-evidence-upload.png') });
+  await mobileUpload.getByRole('button', { name: 'Anexar evidência', exact: true }).tap();
+  await mobile.getByRole('link', { name: 'Baixar nota-mobile.txt', exact: true }).waitFor();
+  await mobile.getByTestId('report-RPT-001').getByRole('heading', { name: 'Relatório sintético com concordância e rejeição · RPT-001', exact: true }).scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Relatório móvel não deve causar rolagem horizontal');
+  await mobile.screenshot({ path: path.join(output, 'mobile-report.png') });
+
   await mobile.close();
 }
 

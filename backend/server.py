@@ -16,13 +16,14 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 import dossier
 import governance
+import reporting
 from access import AccessService
 from audit_export import build_export
 from domain import Store, WorkflowError, choice, require
 
 ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "elo_session"
-COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", *governance.COMMANDS}
+COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", *governance.COMMANDS, *reporting.COMMANDS}
 
 
 class EloServer(ThreadingHTTPServer):
@@ -57,10 +58,12 @@ class EloServer(ThreadingHTTPServer):
 class Handler(BaseHTTPRequestHandler):
     timeout = 10
 
-    def send(self, status, content_type, payload, cookie=None):
+    def send(self, status, content_type, payload, cookie=None, download=None):
         self.send_response(status)
         if cookie is not None:
             self.send_header("Set-Cookie", cookie)
+        if download is not None:
+            self.send_header("Content-Disposition", f'attachment; filename="{download}"')
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
@@ -141,7 +144,16 @@ class Handler(BaseHTTPRequestHandler):
             except WorkflowError as error:
                 self.send_json(error.status, {"error": str(error)})
                 return
-        if path == "/api/people":
+        if re.fullmatch(r"/api/evidence/EVD-[0-9]{4}", path):
+            try:
+                from evidence import download_filename
+                metadata, content = self.server.store.evidence_file(path.rsplit("/", 1)[-1])
+                self.send(200, metadata["media_type"], content, download=download_filename(metadata))
+            except WorkflowError as error:
+                self.send_json(error.status, {"error": str(error)})
+            except sqlite3.Error:
+                self.send_json(503, {"error": "Banco indisponível. Tente novamente."})
+        elif path == "/api/people":
             self.send_json(200, {"people": self.server.access.people() if self.server.access else []})
         elif path == "/api/supervision":
             try:
@@ -161,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(200, laboratory.run_laboratory())
         elif path == "/api/audit/export":
             try:
-                self.send_json(200, build_export(self.server.store.export_state()))
+                self.send_json(200, build_export(self.server.store.export_state(include_files=True)))
             except WorkflowError as error:
                 self.send_json(error.status, {"error": str(error)})
             except sqlite3.Error:
@@ -200,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get_content_type() != "application/json":
                 raise WorkflowError("Use application/json.", 415)
             length = int(self.headers.get("Content-Length", "0"))
-            if length > (524288 if command == "import" else 65536 if command in governance.COMMANDS else 8192):
+            if length > (1500000 if command == "evidence/upload" else 524288 if command == "import" else 65536 if command in governance.COMMANDS else 8192):
                 raise WorkflowError("O pedido é grande demais.", 413)
             if length <= 0:
                 raise ValueError

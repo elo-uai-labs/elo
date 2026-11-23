@@ -20,10 +20,10 @@ from domain import WorkflowError
 
 ITERATIONS = 600_000
 ROLES = frozenset({'admin', 'analyst', 'reviewer', 'operator', 'auditor'})
-READS = frozenset({'read', 'state', 'audit/export', 'supervision', 'laboratory', 'people', 'session'})
-ANALYST = frozenset({'import', 'detect', 'dossier', 'decision', 'case/link', 'action'})
+READS = frozenset({'read', 'state', 'audit/export', 'supervision', 'laboratory', 'people', 'session', 'evidence/download'})
+ANALYST = frozenset({'import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create'})
 REVIEWER = frozenset({'risk/save', 'control/save', 'dimension/save', 'catalog/archive',
-                      'maturity/assess', 'impact', 'action/edit', 'action/close'})
+                      'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review'})
 MAX_SESSIONS = 1024
 MAX_FAILURE_KEYS = 1024
 
@@ -176,11 +176,27 @@ class AccessService:
         data = data or {}
         if command in READS:
             return
+        if command == 'evidence/upload':
+            action_id = data.get('action_id')
+            if action_id is None:
+                if not roles & {'analyst', 'reviewer', 'admin'}:
+                    raise WorkflowError('Seu perfil não permite anexar evidência ao caso.', 403)
+            else:
+                action = next((item for item in (state or {}).get('actions', []) if item['id'] == action_id), None)
+                if (not roles & {'operator', 'analyst', 'admin'} or not action
+                        or action['owner'] != stored['id'] or action['case_id'] != data.get('case_id')
+                        or action['status'] in {'done', 'closure_requested'}):
+                    raise WorkflowError('Somente o executor atribuído pode anexar evidência a este plano aberto.', 403)
+            return
         allowed = ((command in ANALYST and bool(roles & {'analyst', 'admin'}))
                    or (command in REVIEWER and bool(roles & {'reviewer', 'admin'}))
                    or (command == 'action/update' and bool(roles & {'operator', 'analyst', 'admin'})))
         if not allowed:
             raise WorkflowError('Seu perfil não permite esta ação.', 403)
+        if command == 'report/review':
+            report = next((item for item in (state or {}).get('reports', []) if item['id'] == data.get('id')), None)
+            if not report or report['creator'] == stored['id']:
+                raise WorkflowError('O relatório exige revisor diferente de quem criou o rascunho.', 403)
         if command in {'action', 'action/edit'}:
             self.validate_owner(data.get('owner'))
         if command == 'impact':

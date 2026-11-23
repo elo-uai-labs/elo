@@ -12,7 +12,7 @@ const labels = {
   monitor: 'Em monitoramento', monitored: 'Em monitoramento', monitoring: 'Em monitoramento',
   discard: 'Descartar', discarded: 'Descartado', approved: 'Aprovado', rejected: 'Recusado',
   accept: 'Aceitou a sugestão', adjust: 'Ajustou a sugestão', reject: 'Rejeitou a sugestão',
-  open: 'Aberto', in_progress: 'Em andamento', done: 'Concluído', closure_requested: 'Aguardando aprovação de encerramento', risk: 'Risco', maturity: 'Maturidade',
+  open: 'Aberto', in_progress: 'Em andamento', done: 'Concluído', draft: 'Rascunho', closure_requested: 'Aguardando aprovação de encerramento', risk: 'Risco', maturity: 'Maturidade',
   low: 'Baixa', medium: 'Média', high: 'Alta', critical: 'Crítica',
   alert_detected: 'Indício detectado', dossier_generated: 'Dossiê gerado', decision_recorded: 'Decisão humana registrada',
   impact_decided: 'Impacto avaliado', action_created: 'Plano de ação criado', action_updated: 'Plano de ação atualizado',
@@ -23,6 +23,7 @@ const notice = document.querySelector('#notice');
 let state;
 let session;
 let people = [];
+const selectedFiles = new Map();
 let sending = false;
 let laboratoryResult;
 let supervisionResult;
@@ -67,11 +68,15 @@ function permissionReason(endpoint, form) {
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
-  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action'];
-  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close'];
-  const permitted = roles.includes('admin') || (analyst.includes(endpoint) && roles.includes('analyst')) ||
+  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create'];
+  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review'];
+  const uploadActionId = form.querySelector('input[name=action_id]')?.value;
+  const uploadAllowed = endpoint === 'evidence/upload' && (uploadActionId ? roles.some((role) => ['operator', 'analyst', 'admin'].includes(role)) : roles.some((role) => ['analyst', 'reviewer', 'admin'].includes(role)));
+  const permitted = uploadAllowed || roles.includes('admin') || (analyst.includes(endpoint) && roles.includes('analyst')) ||
     (reviewer.includes(endpoint) && roles.includes('reviewer')) || (endpoint === 'action/update' && roles.some((role) => ['operator', 'analyst'].includes(role)));
   if (!permitted) return 'Seu perfil permite consultar esta área, mas não executar esta ação.';
+  if (endpoint === 'evidence/upload' && uploadActionId && state.actions.find((item) => item.id === uploadActionId)?.owner !== user.id) return 'Somente o responsável atribuído ao plano pode anexar evidências de execução.';
+  if (endpoint === 'report/review' && state.reports?.find((item) => item.id === form.querySelector('input[name=id]')?.value)?.creator === user.id) return 'A revisão do relatório exige outra pessoa, diferente de quem o compilou.';
   if (endpoint === 'impact' && state.case?.decision?.actor === user.id) return 'A avaliação de impacto exige outro revisor, diferente de quem qualificou o caso.';
   const id = form.querySelector('input[name=id]')?.value;
   const action = state.actions.find((item) => item.id === id);
@@ -94,6 +99,7 @@ function expiredSession(error) {
   session = { ...session, authenticated: false, user: null };
   state = undefined;
   people = [];
+  selectedFiles.clear();
   supervisionResult = undefined;
   laboratoryResult = undefined;
   render();
@@ -496,6 +502,82 @@ function actionForm() {
   </form>`;
 }
 
+function attachmentUpload(action) {
+  if (!state.case) return '';
+  if (action && ['done', 'closure_requested'].includes(action.status)) return '<p-text size="sm" color="contrast-high">Os anexos da execução ficam preservados durante a revisão e após o encerramento.</p-text>';
+  const caseId = action?.case_id || state.case.id;
+  const key = `${caseId}-${action?.id || 'case'}`;
+  const selected = selectedFiles.get(key);
+  return `<form class="form" data-endpoint="evidence/upload" data-upload-key="${escape(key)}" data-testid="upload-${escape(key)}">
+    ${hidden('case_id', caseId)}${action ? hidden('action_id', action.id) : ''}
+    <p-text size="sm">TXT, PDF, PNG ou JPEG fictícios, até 1 MiB por arquivo e 20 MiB no ambiente. O conteúdo não é lido pelo modelo; o vínculo à evidência é registrado por uma pessoa.</p-text>
+    <input type="file" hidden data-native-file-picker id="file-${escape(key)}" accept=".txt,.pdf,.png,.jpg,.jpeg" data-upload-key="${escape(key)}">
+    <div class="actions"><p-button variant="secondary" icon="none" type="button" data-pick-file="file-${escape(key)}">Selecionar arquivo de evidência</p-button></div>
+    <p-text size="sm" class="reading" data-selected-file="${escape(key)}" aria-live="polite">${selected ? `${escape(selected.name)} · ${selected.size} bytes` : 'Nenhum arquivo selecionado.'}</p-text>
+    ${paragraph(`file-${key}-description`, 'description', 'Descrição e relação com o caso')}
+    ${field(`file-${key}-actor`, 'actor', 'Responsável pelo anexo')}
+    <p-checkbox name="synthetic" value="true" label="Confirmo que o arquivo contém somente dados fictícios" required autocomplete="off"></p-checkbox>
+    <div class="actions"><p-button variant="secondary" icon="none" type="submit">Anexar evidência</p-button></div>
+  </form>`;
+}
+
+function attachmentList(items) {
+  return items.length ? `<p-text-list class="record-list">${items.map((item) => `<p-text-list-item><div class="entry-content" data-testid="attachment-${escape(item.id)}">
+    <p-link variant="secondary" icon="none" href="/api/evidence/${encodeURIComponent(item.id)}" download>Baixar ${escape(item.name)}</p-link>
+    <p-text size="sm">${escape(item.id)} · ${escape(item.size)} bytes · ${escape(item.actor)}${item.action_id ? ` · Plano ${escape(item.action_id)}` : ''}</p-text>
+    <p-text>${escape(item.description)}</p-text><p-text class="technical" size="xs">SHA-256: ${escape(item.sha256)}</p-text>
+  </div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm" color="contrast-high">Nenhum arquivo de evidência anexado.</p-text>';
+}
+
+function caseAttachments() {
+  if (!state.case) return '';
+  return panel('Arquivos de evidência do caso', `${attachmentList((state.attachments || []).filter((item) => item.case_id === state.case.id))}
+    <p-accordion><p-heading slot="summary" tag="h3" size="sm">Anexar arquivo ao caso</p-heading>${attachmentUpload()}</p-accordion>`);
+}
+
+function reportCase(item) {
+  const decision = item.human_decision;
+  return `<section class="entry-content"><p-heading tag="h4" size="md">Caso ${escape(item.case_id)}</p-heading>
+    <p-text size="sm">${item.reviewed_dossier.mode === 'real' ? 'Afirmações de IA real revisadas' : 'Afirmações de síntese local revisadas'} · ${escape(item.reviewed_dossier.model)} · ${escape(item.reviewed_dossier.prompt_version)}</p-text>
+    ${item.claim_status === 'excluded_by_human_rejection' ? '<p-text>As afirmações foram excluídas porque a sugestão foi rejeitada na revisão humana.</p-text>' : `<p-text-list data-testid="report-claims">${item.claims.map((claim) => `<p-text-list-item><p-text>${escape(claim.text)}</p-text><p-text size="sm" color="contrast-high">Fontes: ${claim.source_ids.map(escape).join(', ')}</p-text></p-text-list-item>`).join('')}</p-text-list><p-text class="reading">Limitações: ${escape(item.reviewed_dossier.limitations)}</p-text><p-text class="reading">Sugestão revisada: ${escape(item.reviewed_dossier.suggestion)}</p-text>`}
+    <div class="decision-block"><p-text weight="semibold">Decisão humana: ${decisionOutcome(decision.outcome)} · ${escape(decision.actor)}</p-text><p-text>${format(decision.review)} · ${escape(decision.reason)}</p-text></div>
+    <p-accordion><p-heading slot="summary" tag="h4" size="sm">Fontes preservadas · ${escape(item.case_id)}</p-heading><p-text-list>${item.sources.map((source) => `<p-text-list-item><p-text weight="semibold">${escape(source.id)} · ${escape(source.source)}</p-text><p-text>${escape(source.detail)}</p-text><p-text class="technical" size="sm">${escape(JSON.stringify(source.record, null, 2))}</p-text></p-text-list-item>`).join('')}</p-text-list></p-accordion>
+  </section>`;
+}
+
+function reportsPanel() {
+  const eligible = cases().filter((item) => item.decision && (item.decision.review === 'reject' || item.dossier?.prompt_version === 'elo-dossier-v3'));
+  const create = eligible.length ? `<form class="form" data-endpoint="report/create" data-testid="report-create">
+    ${field('report-title', 'title', 'Título do relatório')}
+    <p-text weight="semibold" size="sm">Casos revisados a incluir (até 20)</p-text>
+    ${eligible.map((item) => `<p-checkbox name="case_ids" value="${escape(item.id)}" label="${escape(item.id)} · ${decisionOutcome(item.decision.outcome)}" autocomplete="off"></p-checkbox>`).join('')}
+    ${field('report-actor', 'actor', 'Responsável pela compilação')}
+    <div class="actions"><p-button variant="secondary" icon="none" type="submit">Criar rascunho de relatório</p-button></div>
+  </form>` : '<p-text size="sm">Revise um dossiê v3 e registre uma decisão humana para compilar o relatório. Casos com sugestão rejeitada podem ser incluídos com a decisão e as fontes, sem reutilizar suas afirmações.</p-text>';
+  const reports = (state.reports || []).map((report) => `<section class="panel" data-testid="report-${escape(report.id)}"><div class="entry-header"><p-heading tag="h3" size="md">${escape(report.title)} · ${escape(report.id)}</p-heading>${badge(report.status)}</div>
+    <p-text size="sm">${escape(report.scope)}</p-text><p-text size="sm">${escape(report.generation)}</p-text>
+    <p-text size="sm" color="contrast-high">Compilado por ${escape(report.creator)} · ${escape(new Date(report.created_at).toLocaleString('pt-BR'))}</p-text>
+    ${report.cases.map(reportCase).join('')}
+    ${report.review ? `<div class="decision-block"><p-text weight="semibold">Revisão do relatório: ${format(report.review.outcome)} · ${escape(report.review.actor)}</p-text><p-text>${escape(report.review.reason)}</p-text></div>` : `<form class="form" data-endpoint="report/review" data-testid="review-${escape(report.id)}">
+      ${hidden('id', report.id)}${hidden('report_revision', report.revision)}
+      <p-text size="sm">Revise as afirmações, as fontes, as limitações e as decisões antes de aprovar. No modo autenticado, o revisor deve ser diferente de quem compilou.</p-text>
+      ${selectField(`report-${report.id}-outcome`, 'outcome', 'Decisão sobre o relatório', [['approved', 'Aprovar relatório'], ['rejected', 'Recusar relatório']])}
+      ${field(`report-${report.id}-reviewer`, 'actor', 'Revisor do relatório')}${paragraph(`report-${report.id}-reason`, 'reason', 'Justificativa da revisão do relatório')}
+      <div class="actions"><p-button variant="primary" icon="none" type="submit">Registrar revisão do relatório</p-button></div>
+    </form>`}</section>`).join('');
+  return panel('Relatórios gerenciais', `<p-text size="sm">Compilação rastreável de afirmações já revisadas e decisões humanas. Não há nova chamada ao modelo. A aprovação do relatório é uma decisão separada.</p-text>
+    <p-accordion><p-heading slot="summary" tag="h3" size="sm">Novo relatório gerencial</p-heading>${create}</p-accordion>${reports}`);
+}
+
+function encodeFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Não foi possível ler o arquivo selecionado.'));
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+}
+
 function actionCard(item) {
   const prefix = `action-${escape(item.id)}`;
   const identity = hidden('id', item.id) + hidden('case_id', item.case_id) + hidden('action_revision', item.revision);
@@ -525,6 +607,8 @@ function actionCard(item) {
     <p-text size="sm" color="contrast-high">Caso ${escape(item.case_id)} · ${escape(item.owner)} · Prazo ${escape(item.due)}</p-text>
     ${item.evidence ? `<p-text class="reading">Evidência: ${escape(item.evidence)}</p-text>` : ''}
     ${item.closure_review ? `<p-text size="sm">Revisão: ${escape(item.closure_review.actor)} · ${format(item.closure_review.outcome)} · ${escape(item.closure_review.reason)}</p-text>` : ''}
+    ${attachmentList((state.attachments || []).filter((attachment) => attachment.action_id === item.id))}
+    ${!['done', 'closure_requested'].includes(item.status) ? `<p-accordion><p-heading slot="summary" tag="h3" size="sm">Anexar evidência de execução</p-heading>${attachmentUpload(item)}</p-accordion>` : ''}
     ${update}${edit}${close}
   </div></p-text-list-item>`;
 }
@@ -564,7 +648,7 @@ function governance() {
   const eventList = state.audit.length ? `<p-text-list class="record-list audit">${[...state.audit].reverse().map(auditEvent).join('')}</p-text-list>` : '<p-text color="contrast-high">Nenhum evento registrado.</p-text>';
   const actions = state.actions.length ? `<p-text-list class="record-list">${state.actions.map(actionCard).join('')}</p-text-list>` : '<p-text color="contrast-high">Nenhum plano de ação registrado.</p-text>';
   return `${heading('Plano de ação e auditoria', 'Acompanhe recomendações e consulte quem decidiu o quê, quando e por quê.')}
-    <div class="grid"><div class="stack">${panel('Plano de ação', `${actions}${actionForm()}`)}${panel('Supervisão humana', supervision(state.case))}${supervisionPanel()}</div>${panel('Trilha de auditoria', '<div class="actions"><p-link variant="secondary" icon="none" href="/api/audit/export" download="elo-auditoria.json">Exportar pacote de auditoria</p-link></div><p-text size="sm" color="contrast-high">Pacote JSON dos registros sintéticos locais, com trilha e hashes SHA-256 para verificação independente de integridade. Não equivale a uma assinatura digital.</p-text>' + eventList, status)}</div>`;
+    <div class="grid"><div class="stack">${panel('Plano de ação', `${actions}${actionForm()}`)}${panel('Supervisão humana', supervision(state.case))}${supervisionPanel()}${caseAttachments()}${reportsPanel()}</div>${panel('Trilha de auditoria', '<div class="actions"><p-link variant="secondary" icon="none" href="/api/audit/export" download="elo-auditoria.json">Exportar pacote de auditoria</p-link></div><p-text size="sm" color="contrast-high">Pacote JSON dos registros sintéticos locais, com trilha e hashes SHA-256 para verificação independente de integridade. Não equivale a uma assinatura digital.</p-text>' + eventList, status)}</div>`;
 }
 
 function render() {
@@ -608,6 +692,27 @@ function announce(message, error = false) {
   notice.innerHTML = message ? `<p-inline-notification state="${error ? 'error' : (sending ? 'info' : 'success')}" heading="${escape(message)}" dismiss-button="false"></p-inline-notification>` : '';
 }
 
+view.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-pick-file]');
+  if (button && !sending) document.getElementById(button.getAttribute('data-pick-file'))?.click();
+});
+
+view.addEventListener('change', (event) => {
+  const picker = event.target;
+  if (!picker.matches('input[data-native-file-picker]')) return;
+  const key = picker.getAttribute('data-upload-key');
+  const file = picker.files?.[0];
+  selectedFiles.delete(key);
+  const label = [...view.querySelectorAll('[data-selected-file]')].find((element) => element.getAttribute('data-selected-file') === key);
+  if (label) label.textContent = 'Nenhum arquivo selecionado.';
+  if (!file) return;
+  if (file.size > 1048576) { announce('O arquivo excede o limite de 1 MiB.', true); return; }
+  if (!/\.(txt|pdf|png|jpe?g)$/i.test(file.name)) { announce('Selecione um arquivo TXT, PDF, PNG ou JPEG.', true); return; }
+  selectedFiles.set(key, file);
+  if (label) label.textContent = `${file.name} · ${file.size} bytes`;
+  announce('Arquivo selecionado. Confirme os dados fictícios e registre a descrição antes de anexar.');
+});
+
 view.addEventListener('update', (event) => {
   if (event.target.matches('p-accordion')) event.target.open = event.detail.open;
 }, { capture: true });
@@ -631,6 +736,17 @@ view.addEventListener('submit', async (event) => {
     const endpoint = form.getAttribute('data-endpoint');
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData);
+    if (endpoint === 'report/create') payload.case_ids = formData.getAll('case_ids');
+    if (endpoint === 'evidence/upload') {
+      const file = selectedFiles.get(form.getAttribute('data-upload-key'));
+      if (!file) throw new Error('Selecione um arquivo de evidência antes de anexar.');
+      if (file.size > 1048576) throw new Error('O arquivo excede o limite de 1 MiB.');
+      payload.name = file.name;
+      const extension = file.name.split('.').at(-1).toLowerCase();
+      payload.media_type = file.type || ({txt:'text/plain',pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg'}[extension] || 'application/octet-stream');
+      payload.content_base64 = await encodeFile(file);
+      payload.synthetic = payload.synthetic === 'true';
+    }
     if (endpoint === 'risk/save') payload.control_ids = formData.getAll('control_ids');
     if (endpoint === 'dimension/save') {
       payload.questions = [];
@@ -656,6 +772,7 @@ view.addEventListener('submit', async (event) => {
       session = await read('/api/logout', {});
       state = undefined;
       people = [];
+      selectedFiles.clear();
       supervisionResult = undefined;
       laboratoryResult = undefined;
     } else if (endpoint === 'laboratory/run' || endpoint === 'supervision/read') {
@@ -670,6 +787,7 @@ view.addEventListener('submit', async (event) => {
         payload.synthetic = payload.synthetic === 'true';
       } else if (state.case && !payload.case_id) payload.case_id = state.case.id;
       state = await read(`/api/${endpoint}`, payload);
+      if (endpoint === 'evidence/upload') selectedFiles.delete(form.getAttribute('data-upload-key'));
       supervisionResult = undefined;
     }
     if (state) selectedCaseId = state.case?.id || null;

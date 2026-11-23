@@ -158,6 +158,35 @@ class AccessTest(unittest.TestCase):
         self.service.authorize(self.user('admin'), 'impact', state, {'case_id': 'ELO-B'})
         self.assert_status(403, lambda: self.service.authorize(self.user('reviewer'), 'impact', state, {'case_id': 'missing'}))
 
+    def test_evidence_permissions_assignment_case_and_status(self):
+        action = {'id': 'REC-001', 'case_id': 'ELO-A', 'owner': 'operator', 'status': 'in_progress'}
+        state = {'actions': [action]}
+        payload = {'case_id': 'ELO-A', 'action_id': 'REC-001'}
+        for role in ('analyst', 'reviewer', 'admin'):
+            self.service.authorize(self.user(role), 'evidence/upload', state, {'case_id': 'ELO-A'})
+        self.service.authorize(self.user('operator'), 'evidence/upload', state, payload)
+        for role in ('operator', 'auditor'):
+            self.assert_status(403, lambda: self.service.authorize(self.user(role), 'evidence/upload', state, {'case_id': 'ELO-A'}))
+        for role in ('analyst', 'reviewer', 'admin', 'auditor'):
+            self.assert_status(403, lambda: self.service.authorize(self.user(role), 'evidence/upload', state, payload))
+        self.assert_status(403, lambda: self.service.authorize(self.user('operator'), 'evidence/upload', state, {**payload, 'case_id': 'ELO-B'}))
+        for status in ('closure_requested', 'done'):
+            action['status'] = status
+            self.assert_status(403, lambda: self.service.authorize(self.user('operator'), 'evidence/upload', state, payload))
+        self.service.authorize(self.user('auditor'), 'evidence/download')
+
+    def test_report_creation_and_independent_review(self):
+        state = {'reports': [{'id': 'RPT-001', 'creator': 'admin'}]}
+        for role in ('analyst', 'admin'):
+            self.service.authorize(self.user(role), 'report/create', state, {})
+        for role in ('reviewer', 'operator', 'auditor'):
+            self.assert_status(403, lambda: self.service.authorize(self.user(role), 'report/create', state, {}))
+        self.assert_status(403, lambda: self.service.authorize(self.user('admin'), 'report/review', state, {'id': 'RPT-001'}))
+        self.assert_status(403, lambda: self.service.authorize(self.user('analyst'), 'report/review', state, {'id': 'RPT-001'}))
+        self.service.authorize(self.user('reviewer'), 'report/review', state, {'id': 'RPT-001'})
+        state['reports'][0]['creator'] = 'analyst'
+        self.service.authorize(self.user('admin'), 'report/review', state, {'id': 'RPT-001'})
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,7 @@
 """The Elo demo workflow and transactional audit trail."""
 
 import hashlib
+import base64
 import json
 import re
 from copy import deepcopy
@@ -106,6 +107,9 @@ def normalize(state):
                               "rule": RULE} if state["case"] else None)
     state["case"] = state["cases"][0] if state["cases"] else None
     import governance
+    import reporting
+    state.setdefault("attachments", [])
+    reporting.normalize(state)
     return governance.normalize(state)
 
 
@@ -160,6 +164,18 @@ def match_case(dataset):
 def transition(state, command, data):
     normalize(state)
     import governance
+    import reporting
+    if command in reporting.COMMANDS:
+        return reporting.transition(state, command, data)
+    if command == "evidence/upload":
+        case = selected_case(state, data["case_id"])
+        require(case is not None, "Caso não encontrado.")
+        if data.get("action_id"):
+            item = next((row for row in state["actions"] if row["id"] == data["action_id"] and row["case_id"] == case["id"]), None)
+            require(item is not None, "Plano não pertence ao caso informado.")
+            require(item["status"] not in ("done", "closure_requested"), "O plano está concluído ou aguardando revisão; não pode receber novos arquivos.")
+        state["attachments"].append(data)
+        return "Arquivo de evidência registrado", data["actor"], deepcopy(data)
     if command in governance.COMMANDS:
         return governance.transition(state, command, data)
     if command == "import":
@@ -274,6 +290,11 @@ class Store:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS workflow (id INTEGER PRIMARY KEY CHECK (id = 1), value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS audit (seq INTEGER PRIMARY KEY, event TEXT NOT NULL, hash TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS evidence_files (id TEXT PRIMARY KEY, content BLOB NOT NULL);
+                CREATE TRIGGER IF NOT EXISTS evidence_no_update BEFORE UPDATE ON evidence_files
+                    BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS evidence_no_delete BEFORE DELETE ON evidence_files
+                    BEGIN SELECT RAISE(ABORT, 'append-only'); END;
                 CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit
                     BEGIN SELECT RAISE(ABORT, 'append-only'); END;
                 CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit
@@ -289,10 +310,25 @@ class Store:
             db.execute("BEGIN")
             return presentation(self.snapshot(db), case_id)
 
-    def export_state(self):
+    def export_state(self, include_files=False):
         with closing(self.connect()) as db:
             db.execute("BEGIN")
-            return self.snapshot(db)
+            state = self.snapshot(db)
+            if include_files:
+                require(state["audit_valid"], "A integridade da trilha e dos arquivos precisa ser verificada.")
+                state["attachment_files"] = [{"id": identifier, "content_base64": base64.b64encode(content).decode("ascii")}
+                    for identifier, content in db.execute("SELECT id, content FROM evidence_files ORDER BY id")]
+            return state
+
+    def evidence_file(self, identifier):
+        with closing(self.connect()) as db:
+            db.execute("BEGIN")
+            state = self.snapshot(db)
+            require(state["audit_valid"], "A integridade da trilha e dos arquivos precisa ser verificada.")
+            metadata = next((row for row in state.get("attachments", []) if row["id"] == identifier), None)
+            if metadata is None:
+                raise WorkflowError("Arquivo não encontrado.", 404)
+            return metadata, bytes(db.execute("SELECT content FROM evidence_files WHERE id = ?", (identifier,)).fetchone()[0])
 
     def apply(self, command, data, authorize=None):
         with closing(self.connect()) as db, db:
@@ -301,7 +337,17 @@ class Store:
             require(state.pop("audit_valid"), "A integridade da trilha precisa ser verificada.")
             audit = state.pop("audit")
             authentication = authorize(state) if authorize else {"mode": "local-demo"}
-            action, actor, detail = transition(state, command, data)
+            transition_data = data
+            if command == "evidence/upload":
+                from evidence import MAX_FILES, MAX_TOTAL_BYTES, validate_upload
+                metadata, content = validate_upload(data)
+                count, used = db.execute("SELECT COUNT(*), COALESCE(SUM(length(content)), 0) FROM evidence_files").fetchone()
+                require(count < MAX_FILES and used + len(content) <= MAX_TOTAL_BYTES,
+                        "Limite local de 200 arquivos ou 20 MiB atingido.")
+                metadata["id"] = f"EVD-{count + 1:04}"
+                db.execute("INSERT INTO evidence_files (id, content) VALUES (?, ?)", (metadata["id"], content))
+                transition_data = metadata
+            action, actor, detail = transition(state, command, transition_data)
             normalize(state)
             state_encoded = serialize(state)
             event = {
@@ -334,6 +380,12 @@ class Store:
                 valid &= audit[-1]["state_hash"] == hashlib.sha256(serialize(state).encode("utf-8")).hexdigest()
             else:
                 valid &= state == initial_state()
-            return {**state, "audit": audit, "audit_valid": valid}
+            files = {identifier: content for identifier, content in db.execute("SELECT id, content FROM evidence_files")}
+            attachments = state.get("attachments", [])
+            valid &= len(attachments) == len(files) and {item["id"] for item in attachments} == set(files)
+            for item in attachments:
+                content = files.get(item["id"])
+                valid &= isinstance(content, bytes) and len(content) == item["size"] and hashlib.sha256(content).hexdigest() == item["sha256"]
+            return {**state, "audit": audit, "audit_valid": bool(valid)}
         except (ValueError, KeyError, TypeError) as error:
             raise WorkflowError("A trilha contém registros inválidos.", 503) from error
