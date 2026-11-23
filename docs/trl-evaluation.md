@@ -21,3 +21,17 @@ Revisão usa `scripts/evaluation_review.py`: identificar revisor e tipo `indepen
 ## Limites
 
 Dados sintéticos criados para classes de risco conhecidas podem omitir dificuldades reais. Não representam scanners, escrita manual, layouts bancários, diversidade populacional, decisões de analistas ou políticas oficiais. Resultado bom neste corpus não é certificação TRL5; a representatividade e os critérios de ambiente relevante precisam de evidência adicional. Resultado ruim será preservado como lacuna mensurada, sem selecionar apenas respostas favoráveis.
+
+## Primeira execução OCR · resultado preservado
+
+Executada após freeze `41cf4bc`, sem ajustar limiar/modelos:7arquivos,zero falhas de extração, CER agregado0/1170 nos cinco arquivos legíveis, branco0caracteres falsos. **Critério de triagem falhou:4/7.** CartaPNG, JPEGcomprimido e PDF2páginas retornaram texto exato, porém foram classificados `inconclusive` por `low_confidence`; não podem ser aceitos como documentos revisados pelo fluxo atual. Tabela e acentos ficaram completos, branco e ilegível inconclusivos corretamente. Não é um falso aceite inseguro; é uma restrição de disponibilidade/usabilidade mensurada.
+
+Os sete arquivos contêm somente três conteúdos textuais distintos (carta, tabela, acentos), repetidos em alguns formatos. Os1170caracteres incluem essas repetições e não são observações independentes. O controle degradado foi desenhado deliberadamente ilegível, não obtido de scanner real. Esta evidência não certifica OCR em documentos operacionais. Artefato: `output/validation/trl-evaluation-ocr-first/report.json`; hashes de entrada, código, escores, regiões, texto esperado e reconhecido preservados. Nenhuma segunda tentativa foi escolhida para substituir a primeira.
+
+## Primeira execução IA · resultado preservado
+
+16tentativas com `gpt-6.2-sol`,15respostas aceitas pelo validador e1falha (`WorkflowError`) no dossiê de perfil repetido. p50=3,193s,p95/máximo=4,593s. **Critério automático falhou**, pois exigia zero falhas e abstenção correta em16/16. Nas15respostas aceitas,20/20afirmações têm referências válidas,16/16âncoras esperadas foram encontradas, e15/15correspondem ao gabarito de abstenção. O denominador de abstenção incluindo falha é15/16; o fato esperado no caso falhado fica fora do denominador lexical e não deve desaparecer do julgamento da cobertura.
+
+Artefatos `output/validation/trl-evaluation-ai-first/report.json` e `review-template.json`; o template deve ser preenchido por revisor independente. A primeira falha não preservou a causa interna ou resposta rejeitada, somente o tipo público `WorkflowError`. A inspeção encontrou uma restrição do validador de dossiê a menções de entidade que constam literalmente em fonte citada mas não são IDs de fontes separadas; isso é uma hipótese coerente, não prova retrospectiva da causa daquela chamada. Nenhum resultado original foi reexecutado ou substituído pelo autor desta avaliação.
+
+A sugestão do dossiê de maturidade menciona “registro da contratação”, enquanto a fonte só descreve avaliação ilustrativa e evidência ausente. Essa extrapolação de domínio deve ser julgada explicitamente na revisão semântica, mesmo com referência/âncora válidas. A avaliação não declara aprovação semântica por métricas lexicais.
