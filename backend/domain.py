@@ -142,10 +142,12 @@ def selected_case(state, case_id=None):
     return cases[0] if cases else None
 
 
-def presentation(state, case_id=None):
-    result = normalize(deepcopy(state))
+def presentation(state, case_id=None, *, copy_state=True):
+    # Store.read owns its freshly decoded snapshot; other callers keep isolation.
+    result = normalize(deepcopy(state) if copy_state else state)
     result["case"] = selected_case(result, case_id)
-    processed = (result["detection"] or {}).get("processed_by_rule", {})
+    processed = {identifier: set(ids) for identifier, ids in
+                 (result["detection"] or {}).get("processed_by_rule", {}).items()}
     import rule_config
     result["rules"] = [{**rule_config.snapshot(result, identifier), "pending_count": sum(row["id"] not in processed.get(identifier, []) for row in result["dataset"]["contracts"]),
                        "completed": identifier in processed} for identifier, rule in RULES.items()]
@@ -416,7 +418,9 @@ class Store:
     def read(self, case_id=None):
         with closing(self.connect()) as db:
             db.execute("BEGIN")
-            return presentation(self.snapshot(db), case_id)
+            snapshot = self.snapshot(db)
+        # Release the consistent SQLite read transaction before CPU-only projection.
+        return presentation(snapshot, case_id, copy_state=False)
 
     def export_state(self, include_files=False):
         with closing(self.connect()) as db:
