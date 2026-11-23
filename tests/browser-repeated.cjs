@@ -18,6 +18,8 @@ exports.runRepeated = async (browser, errors, baseUrl) => {
   assert.ok(cases.some(c=>c.records.contract.id===contract.id));
   const repeated=cases.find(c=>c.records.contract.id===contract.id);
   await page.goto(`${baseUrl}/?case_id=${repeated.id}#inteligencia`);
+  await page.locator('#dossier-mode').getByRole('combobox').click();
+  await page.locator('#dossier-mode').getByRole('option', {name:'Síntese local',exact:true}).click();
   await page.getByTestId('generate-dossier').click();
   await page.getByTestId('dossier').waitFor();
   await page.getByTestId('dossier').getByText(/não se conclui duplicidade financeira/).waitFor();
