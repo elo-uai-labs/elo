@@ -22,7 +22,12 @@
     "test:evaluation": "node scripts/test-evaluation.mjs",
     "test:operations": "node tests/operations.cjs",
     "evaluate": "node scripts/evaluation.mjs",
-    "test:supervision": "node tests/supervision.cjs"
+    "test:supervision": "node tests/supervision.cjs",
+    "test:trl-source": "python3 scripts/trl-source-acceptance.py",
+    "test:trl-operation": "python3 scripts/trl-operation.py",
+    "test:trl-crash": "python3 scripts/trl-crash-transaction.py",
+    "evaluate:trl": "node scripts/trl-evaluation.mjs",
+    "test:trl-real": "node scripts/trl-real-operation.mjs"
   },
   "dependencies": {
     "@porsche-design-system/components-js": "4.10.1"

@@ -10,12 +10,15 @@ from datetime import datetime, timezone
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'output/trl5'
 REQUIRED = ['docs/trl5/ambiente-relevante.md', 'docs/trl5/execucao.md', 'docs/trl5/conclusao.md',
-            'docs/trl-source-integration.md', 'docs/trl-operation.md', 'docs/trl-evaluation.md',
+            'docs/trl-source-integration.md', 'docs/trl-real-operation.md',
+            'output/validation/trl5/real-operation.json', 'docs/trl-operation.md', 'docs/trl-evaluation.md',
             'docs/reviews/general-trl5.md', 'docs/reviews/security-trl5.md',
             'docs/reviews/dba-trl5.md', 'docs/reviews/performance-trl5.md',
             'output/validation/trl5/source-integration.json', 'output/validation/trl5/crash-transaction.json',
             'output/validation/dba-trl5.json', 'output/validation/security-trl5.json', 'output/validation/trl-operation.json',
-            'output/validation/trl5/acceptance.json',
+            'output/validation/trl5/acceptance.json', 'output/validation/trl5/result-local.json',
+            'output/validation/trl5/result-real.json', 'output/validation/trl5/result-auth.json',
+            'output/validation/trl5/operations-e2e.json', 'output/validation/trl5/supervision-e2e.json',
             'output/validation/trl-evaluation-ai-first/report.json',
             'output/validation/trl-evaluation-ai-first/independent-review.json',
             'output/validation/trl-evaluation-ai-first/adjudicated.json',

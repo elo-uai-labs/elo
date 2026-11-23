@@ -1,3 +1,17 @@
+# Evidências autônomas para TRL 5 · 23/11/2026
+
+Rodada pelo orquestrador concluída: fonte HTTP separada com importação paginada/atômica, operação mista autenticada, recuperação após reinício e interrupção dentro da transação, novo conjunto IA/OCR congelado e ensaio com OCR/OpenAI reais durante leituras concorrentes. [Conclusão e pendências](trl5/conclusao.md), [ambiente proposto](trl5/ambiente-relevante.md) e [execução](trl5/execucao.md).
+
+**Build, 237 testes backend, 5 testes offline e jornadas canônicas passaram**, incluindo desktop/celular/PDS, autenticação, operação e supervisão. Jornada adicional com OpenAI real passou após correção `7ede206`: 14 casos/122 eventos, auditoria e persistência preservadas. A primeira rodada canônica falhou em um timeout de importação inicial do leitor PDF; diagnóstico e repetição documentados sem aumentar limite.
+
+Operação mista: 60 s, 1.288 requisições totais, zero erros inesperados, 99 negativas/conflitos previstos e trilha exata; leitura p95 0,055 s. Complemento autenticado real: duas chamadas OpenAI e OCR durante 144 leituras, zero erros inesperados; 1.639 tokens auditados. SIGKILL dentro de uma transação reverteu gravações incompletas e permitiu repetição única. Revisões [geral](reviews/general-trl5.md), [segurança](reviews/security-trl5.md), [DBA](reviews/dba-trl5.md) e [performance](reviews/performance-trl5.md) registram versões/hashes e limites.
+
+**Qualidade não integralmente aprovada:** avaliação inicial IA teve 15/16 respostas aceitas; nas aceitas, revisão independente por agente sustentou 20/20 afirmações. Uma regressão real separada passou após correção da validação de menções em fontes citadas, sem substituir a falha original. OCR extraiu corretamente os cinco legíveis (CER 0/1170), mas triagem 4/7: três ficaram inconclusivos por confiança baixa. Corpus/gabaritos/limiares não foram alterados para aprovar.
+
+**TRL 5 não declarado:** representatividade ainda é hipótese e há critérios de qualidade pendentes. Autoavaliação conservadora: TRL 4 fortalecido. O pacote `output/trl5/elo-evidencias-trl5.zip` mantém sucessos/falhas separados; integração corporativa, qualidade populacional e benefício com usuários não são inferidos dos testes. Servidor local atualizado; banco manual, credenciais e restrição de publicação preservados.
+
+---
+
 # Fechamento local do Product Vision · 23/11/2026
 
 Concluídas pelo orquestrador as pendências locais identificadas: filtros de investigação da supervisão com métricas separadas dos totais; metadados de consumo OpenAI persistidos e relatório CLI com tarifas opcionais; instrumento CSV/CLI para medir benefício por pares comparáveis; carga HTTP sustentada e atualização da matriz. [Registro completo](product-vision-closure.md), [supervisão](supervisao-filtros.md), [consumo](consumo-ia.md), [benefício](benefit-measurement.md) e [capacidade](capacidade-local.md).

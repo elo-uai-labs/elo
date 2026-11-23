@@ -1,3 +1,5 @@
+> Atualização de 23/11: há uma avaliação posterior com corpus novo e resultados parciais. Consulte [avaliação TRL](trl-evaluation.md) e [conclusão](trl5/conclusao.md). Os resultados abaixo descrevem o conjunto anterior; não substituem as falhas posteriores nem certificam precisão geral.
+
 # Avaliação sintética de IA e OCR
 
 O avaliador mede comportamentos definidos em gabaritos pequenos e reproduzíveis. Não usa o banco da aplicação, dados reais nem identidade corporativa. Não declara precisão geral, conformidade CAIXA ou homologação humana. Executar os comandos reais pode consumir créditos da API.

@@ -156,3 +156,9 @@ O [painel operacional](docs/operacao-equipes.md) oferece avisos in-app, filtros,
 ## Fechamento local do Product Vision
 
 A [supervisão](docs/supervisao-filtros.md) amplia o recorte das decisões sem alterar indicadores globais. [Consumo da IA](docs/consumo-ia.md) registra tokens informados pelo provedor nas respostas persistidas e oferece relatório de estimativa com tarifas explícitas. O [instrumento de benefício](docs/benefit-measurement.md) prepara a comparação de tarefas com e sem Elo, sem inventar resultados de participantes. Aceites e limites desta rodada ficam no registro de fechamento.
+
+## Evidências para evolução de TRL
+
+A [rodada TRL](docs/trl5/conclusao.md) reúne fonte HTTP separada e paginada, [operação autenticada mista](docs/trl-operation.md), interrupção dentro da transação, [avaliação nova IA/OCR](docs/trl-evaluation.md) e [OCR/OpenAI reais durante leituras autenticadas](docs/trl-real-operation.md). Os ensaios criam bancos temporários e serviços em loopback. Não iniciam integração corporativa ou publicação.
+
+Com o Python do projeto disponível, `npm run test:trl-source`, `npm run test:trl-operation` e `npm run test:trl-crash` executam os protocolos offline/locais. Para o ensaio OCR/OpenAI, `npm run test:trl-real -- --real --allow-paid` exige adesão explícita e limita a duas chamadas; `--smoke` usa síntese local. Consulte os protocolos para requisitos de OCR, diretórios de saída novos e limites. A classificação permanece TRL4 fortalecido: representatividade não demonstrada e falhas originais de qualidade estão documentadas, sem promoção automática para TRL5.
