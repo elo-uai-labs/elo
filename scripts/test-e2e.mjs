@@ -54,7 +54,8 @@ try {
   execFileSync(env.PYTHON || (existsSync(path.join(root, '.venv/bin/python3')) ? path.join(root, '.venv/bin/python3') : 'python3'),
     ['backend/audit_export.py', auditPath], {cwd: root, env, stdio: 'inherit'});
   const before = await (await fetch(`${url}/api/state`)).json();
-  if (before.case.dossier.usage?.provider === 'openai') {
+  if ((env.ELO_TEST_DOSSIER === 'real' && env.ELO_AI_PROVIDER === 'openai') || before.case.dossier.usage?.provider === 'openai') {
+    assert.equal(before.case.dossier.usage?.provider, 'openai', 'Metadados OpenAI devem ser preservados');
     const usageReport = JSON.parse(execFileSync(env.PYTHON || (existsSync(path.join(root, '.venv/bin/python3')) ? path.join(root, '.venv/bin/python3') : 'python3'),
       ['backend/ai_usage.py', auditPath], {cwd: root, env, encoding: 'utf8'}));
     assert.ok(usageReport.totals.total_tokens.measured_records > 0, 'Rodada OpenAI real deve informar tokens');
