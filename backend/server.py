@@ -23,7 +23,7 @@ from domain import Store, WorkflowError, choice, require
 
 ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "elo_session"
-COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", *governance.COMMANDS, *reporting.COMMANDS}
+COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", *governance.COMMANDS, *reporting.COMMANDS}
 
 
 class EloServer(ThreadingHTTPServer):
@@ -47,7 +47,7 @@ class EloServer(ThreadingHTTPServer):
                 authorize(snapshot)
             case = snapshot["case"]
             require(case and not case["decision"], "O caso precisa estar aguardando análise.")
-            generated = {**dossier.generate(case["evidence"], mode), "case_id": case["id"]}
+            generated = {**dossier.generate(case["evidence"], mode, rule_id=case.get("rule", {}).get("id", "contact-code-match")), "case_id": case["id"]}
             if actor is not None:
                 generated["actor"] = actor
             return self.store.apply("dossier", generated, authorize=authorize)
@@ -149,6 +149,19 @@ class Handler(BaseHTTPRequestHandler):
                 from evidence import download_filename
                 metadata, content = self.server.store.evidence_file(path.rsplit("/", 1)[-1])
                 self.send(200, metadata["media_type"], content, download=download_filename(metadata))
+            except WorkflowError as error:
+                self.send_json(error.status, {"error": str(error)})
+            except sqlite3.Error:
+                self.send_json(503, {"error": "Banco indisponível. Tente novamente."})
+        elif path == "/api/insights":
+            try:
+                import insights
+                snapshot = self.server.store.read(parse_qs(urlsplit(self.path).query).get("case_id", [None])[0])
+                require(snapshot["audit_valid"], "A integridade da trilha precisa ser verificada.")
+                case_id = snapshot["case"]["id"] if snapshot["case"] else None
+                self.send_json(200, {"connections": insights.connections(snapshot, case_id) if case_id else None,
+                    "memory": insights.similar_cases(snapshot, case_id) if case_id else None,
+                    "trends": insights.trends(snapshot), "scenarios": snapshot.get("scenarios", [])})
             except WorkflowError as error:
                 self.send_json(error.status, {"error": str(error)})
             except sqlite3.Error:

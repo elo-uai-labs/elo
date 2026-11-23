@@ -32,7 +32,7 @@ class ReportingTest(unittest.TestCase):
         self.assertEqual(report['status'], 'draft')
         self.assertNotIn('review', report)
         row = report['cases'][0]
-        self.assertEqual(row['reviewed_dossier']['prompt_version'], 'elo-dossier-v3')
+        self.assertEqual(row['reviewed_dossier']['prompt_version'], self.case['dossier']['prompt_version'])
         self.assertEqual(row['reviewed_dossier']['limitations'], self.case['dossier']['limitations'])
         self.assertEqual(row['reviewed_dossier']['suggestion'], self.case['dossier']['suggestion'])
         self.assertEqual(row['human_decision']['origin'], 'human')

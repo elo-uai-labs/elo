@@ -61,7 +61,13 @@ def initial_state():
     }
 
 
-RULE = {"id": "contact-code-match", "version": "1", "description": "Código cadastral não vazio e igual entre fornecedor e empregado aprovador do contrato. O vínculo é um indício, não comprovação de irregularidade."}
+RULE = {"id": "contact-code-match", "name": "Vínculo cadastral com aprovador", "version": "1", "description": "Código cadastral não vazio e igual entre fornecedor e empregado aprovador do contrato. O vínculo é um indício, não comprovação de irregularidade."}
+
+SUPPLIER_RULE = {"id": "supplier-shared-contact", "name": "Cadastro compartilhado entre fornecedores", "version": "1",
+    "description": "O fornecedor do contrato compartilha código cadastral não vazio com outro fornecedor distinto. São possíveis cadastros administrativos comuns ou outras explicações legítimas; o sinal não comprova irregularidade.",
+    "risk_rationale": "O código cadastral compartilhado por fornecedores exige revisão contextual da diligência cadastral e dos controles do risco associado. O sinal admite explicações legítimas e não comprova irregularidade.",
+    "maturity_rationale": "Avalie se a diligência de terceiros da dimensão associada documenta e revisa códigos cadastrais compartilhados entre fornecedores. A metodologia permanece ilustrativa."}
+RULES = {RULE["id"]: RULE, SUPPLIER_RULE["id"]: SUPPLIER_RULE}
 
 
 def validate_dataset(value):
@@ -105,10 +111,14 @@ def normalize(state):
         state["detection"] = ({"status": "complete", "matches": len(state["cases"]),
                               "processed_contract_ids": [row["id"] for row in state["dataset"]["contracts"]],
                               "rule": RULE} if state["case"] else None)
+    if state["detection"] is not None:
+        state["detection"].setdefault("processed_by_rule", {RULE["id"]: list(state["detection"].get("processed_contract_ids", []))})
     state["case"] = state["cases"][0] if state["cases"] else None
     import governance
     import reporting
     state.setdefault("attachments", [])
+    state.setdefault("scenarios", [])
+    state.setdefault("integration_batches", [])
     reporting.normalize(state)
     return governance.normalize(state)
 
@@ -127,6 +137,9 @@ def selected_case(state, case_id=None):
 def presentation(state, case_id=None):
     result = normalize(deepcopy(state))
     result["case"] = selected_case(result, case_id)
+    processed = (result["detection"] or {}).get("processed_by_rule", {})
+    result["rules"] = [{**deepcopy(rule), "pending_count": sum(row["id"] not in processed.get(identifier, []) for row in result["dataset"]["contracts"]),
+                       "completed": identifier in processed} for identifier, rule in RULES.items()]
     if result["case"]:
         import governance
         linked = governance.targets(result, result["case"])
@@ -144,7 +157,7 @@ def match_cases(dataset):
         code = employee["contact_code"]
         if code and code == supplier["contact_code"]:
             matches.append({
-                "id": "ELO-" + contract["id"].removeprefix("CTR-"), "status": "pending",
+                "id": "ELO-" + contract["id"].removeprefix("CTR-"), "status": "pending", "title": "Possível conflito de interesses",
                 "evidence": [
                     {"id": contract["id"], "source": "Contratos sintéticos", "detail": f"{contract['title']}: fornecedor {supplier['id']} e aprovação por {employee['id']}."},
                     {"id": supplier["id"], "source": "Fornecedores sintéticos", "detail": f"{supplier['name']} possui o código cadastral {code}."},
@@ -153,6 +166,30 @@ def match_cases(dataset):
                 "dossier": None, "decision": None, "impacts": [], "rule": deepcopy(RULE),
                 "records": {"contract": deepcopy(contract), "supplier": deepcopy(supplier), "employee": deepcopy(employee)},
             })
+    return matches
+
+
+def match_supplier_cases(dataset):
+    suppliers = {item["id"]: item for item in dataset["suppliers"]}
+    grouped = {}
+    for supplier in dataset["suppliers"]:
+        if supplier["contact_code"]:
+            grouped.setdefault(supplier["contact_code"], []).append(supplier["id"])
+    matches = []
+    for contract in dataset["contracts"]:
+        supplier = suppliers[contract["supplier_id"]]
+        code = supplier["contact_code"]
+        others = sorted(identifier for identifier in grouped.get(code, []) if identifier != supplier["id"])
+        if not others:
+            continue
+        other = suppliers[others[0]]
+        matches.append({"id": "SIG-SUP-" + contract["id"], "title": SUPPLIER_RULE["name"], "status": "pending",
+            "evidence": [
+                {"id": contract["id"], "source": "Contratos sintéticos", "detail": f"{contract['title']}: contratação do fornecedor {supplier['id']}."},
+                {"id": supplier["id"], "source": "Fornecedores sintéticos", "detail": f"{supplier['name']} possui o código cadastral {code}."},
+                {"id": other["id"], "source": "Fornecedores sintéticos", "detail": f"{other['name']} possui o mesmo código cadastral {code}. O compartilhamento admite explicações legítimas e exige contexto."}],
+            "dossier": None, "decision": None, "impacts": [], "rule": deepcopy(SUPPLIER_RULE),
+            "records": {"contract": deepcopy(contract), "supplier": deepcopy(supplier), "related_supplier": deepcopy(other)}})
     return matches
 
 
@@ -165,6 +202,12 @@ def transition(state, command, data):
     normalize(state)
     import governance
     import reporting
+    if command == "integration/import":
+        import monitoring
+        return monitoring.transition(state, data)
+    if command == "scenario/create":
+        import insights
+        return insights.simulate(state, data)
     if command in reporting.COMMANDS:
         return reporting.transition(state, command, data)
     if command == "evidence/upload":
@@ -196,20 +239,30 @@ def transition(state, command, data):
         if any(row["approver_id"] not in employees or row["supplier_id"] not in suppliers for row in merged["contracts"]):
             raise WorkflowError("Contrato contém referência a empregado ou fornecedor inexistente.")
         state["dataset"] = merged
+        if incoming["suppliers"] and state["detection"] is not None:
+            processed_by_rule = state["detection"].get("processed_by_rule", {})
+            if SUPPLIER_RULE["id"] in processed_by_rule:
+                processed_by_rule[SUPPLIER_RULE["id"]] = []
         return "Base sintética importada", actor, {"synthetic": True, "counts": {key: len(rows) for key, rows in incoming.items()},
             "record_ids": {key: [row["id"] for row in rows] for key, rows in incoming.items()}}
     if command == "detect":
-        processed = set((state["detection"] or {}).get("processed_contract_ids", []))
+        rule_id = choice(data, "rule_id", RULES) if "rule_id" in data else RULE["id"]
+        rule = RULES[rule_id]
+        processed_by_rule = deepcopy((state["detection"] or {}).get("processed_by_rule", {}))
+        processed = set(processed_by_rule.get(rule_id, []))
         pending = [row for row in state["dataset"]["contracts"] if row["id"] not in processed]
-        require(state["detection"] is None or pending, "A detecção já foi executada para todos os contratos. Importe novos registros.")
-        matches = match_cases({**state["dataset"], "contracts": pending})
+        require(rule_id not in processed_by_rule or pending, "A detecção já foi executada para todos os contratos desta regra. Importe novos registros.")
+        matcher = match_cases if rule_id == RULE["id"] else match_supplier_cases
+        known_ids = {item["id"] for item in state["cases"]}
+        matches = [item for item in matcher({**state["dataset"], "contracts": pending}) if item["id"] not in known_ids]
         state["cases"].extend(matches)
         state["case"] = state["cases"][0] if state["cases"] else None
-        state["detection"] = {"status": "complete", "matches": len(state["cases"]), "rule": deepcopy(RULE),
-                              "processed_contract_ids": [row["id"] for row in state["dataset"]["contracts"]]}
+        processed_by_rule[rule_id] = [row["id"] for row in state["dataset"]["contracts"]]
+        state["detection"] = {"status": "complete", "matches": len(state["cases"]), "rule": deepcopy(rule),
+                              "processed_contract_ids": processed_by_rule.get(RULE["id"], []), "processed_by_rule": processed_by_rule}
         return "Indício detectado" if matches else "Análise concluída sem novos indícios", (required(data, "actor", 80) if data.get("actor") else "Regra de detecção"), {
             "system_component": "Regra de detecção", "case_ids": [item["id"] for item in matches], "case_id": matches[0]["id"] if matches else None,
-            "contracts_analyzed": [row["id"] for row in pending], "rule": RULE}
+            "contracts_analyzed": [row["id"] for row in pending], "rule": deepcopy(rule)}
 
     case = selected_case(state, data.get("case_id"))
     require(case is not None, "Execute a detecção primeiro.")
@@ -239,8 +292,8 @@ def transition(state, command, data):
         if outcome == "qualify":
             require(not any(item["archived"] for item in linked.values()), "Os vínculos apontam para registros arquivados. Revise os vínculos antes de qualificar.")
             case["impacts"] = [
-                {"kind": kind, "label": label, "status": "pending", "case_id": case_id,
-                 "current_level": linked[kind]["level"], "proposed_level": ("Crítica" if kind == "risk" and linked[kind]["level"] == "Crítica" else level), "rationale": rationale,
+                {"kind": kind, "label": ("Reavaliar risco associado" if kind == "risk" else "Rever dimensão associada"), "status": "pending", "case_id": case_id,
+                 "current_level": linked[kind]["level"], "proposed_level": ("Crítica" if kind == "risk" and linked[kind]["level"] == "Crítica" else level), "rationale": case.get("rule", {}).get(f"{kind}_rationale", rationale),
                  "target_id": linked[kind]["id"], "target_revision": linked[kind]["revision"],
                  "source_ids": [entry["id"] for entry in case["evidence"]]}
                 for kind, (label, level, rationale) in IMPACTS.items()

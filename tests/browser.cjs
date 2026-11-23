@@ -302,7 +302,7 @@ async function runExpanded(browser, pageErrors) {
   await page.getByText('Registro atualizado.', { exact: true }).waitFor();
   assert.equal((await snapshot()).dataset.contracts.length, original.dataset.contracts.length + 2);
   await page.getByTestId('detect').click();
-  await page.getByText('3 indício(s) detectado(s). 0 contrato(s) ainda não analisado(s).', { exact: true }).waitFor();
+  await page.getByText('3 indício(s) registrado(s). Cada regra requer análise e revisão humana independentes.', { exact: true }).waitFor();
   assert.equal((await snapshot()).cases.length, 3);
   assert.deepEqual((await snapshot()).cases[0], originalCase);
   await choose(page.locator('#selected-case'), 'ELO-2002 · Aguardando análise');
@@ -586,6 +586,89 @@ async function runGovernance(browser, pageErrors) {
   await mobile.close();
 }
 
+async function runInsights(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const snapshot = async () => (await page.request.get(`${baseUrl}/api/state?case_id=ELO-2001`)).json();
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#inteligencia`);
+  await page.getByTestId('similar-cases').getByRole('link', { name: 'Abrir ELO-2002', exact: true }).click();
+  await page.getByTestId('case-decision').getByText(/Descartado/).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('case_id'), 'ELO-2002');
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#impactos`);
+  await page.getByTestId('case-connections').getByText(/proposta de impacto/).first().waitFor();
+  const before = await snapshot();
+  const form = page.getByTestId('scenario-form');
+  await form.getByLabel('Probabilidade').fill('5');
+  await form.getByLabel('Impacto', { exact: false }).fill('5');
+  await form.getByLabel('Responsável pelo registro').fill('Simuladora Demo');
+  await form.getByLabel('Justificativa do registro').fill('Hipótese sintética extrema para avaliar o tratamento.');
+  await form.getByRole('button', { name: 'Registrar cenário hipotético', exact: true }).click();
+  await page.getByTestId('scenario-SIM-001').getByText(/Hipótese Crítica/).waitFor();
+  const after = await snapshot();
+  assert.deepEqual(after.risks, before.risks, 'Simulação não pode alterar avaliação ou revisão dos riscos');
+  assert.equal(after.scenarios[0].score, 25);
+  await page.getByTestId('scenario-SIM-001').scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-scenario.png') });
+  await page.goto(`${baseUrl}/#visao`);
+  await page.getByTestId('event-trends').waitFor();
+  await verifyDesignSystem(page, ['p-table', 'p-table-head-cell', 'p-table-cell']);
+  const context = await (await page.request.get(`${baseUrl}/api/insights?case_id=ELO-2001`)).json();
+  const sum = (key) => context.trends.periods.reduce((total, row) => total + row[key], 0);
+  assert.equal(sum('detected'), 3);
+  assert.equal(sum('qualified'), 2);
+  assert.equal(sum('discarded'), 1);
+  assert.equal(sum('completed'), 1);
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#inteligencia`);
+  await page.getByRole('heading', { name: 'Importar base sintética', exact: true }).click();
+  await input(page, '#import-dataset').fill(JSON.stringify({ employees: [], contracts: [], suppliers: [{ id: 'FOR-201', name: 'Fornecedor sintético relacionado', contact_code: 'FICT-200' }] }));
+  await input(page, '#import-actor').fill('Importador de cenário');
+  await choose(page.locator('#import-synthetic'), 'Confirmo que todos os dados são fictícios');
+  await page.getByRole('button', { name: 'Importar base', exact: true }).click();
+  await page.getByText('Registro atualizado.', { exact: true }).waitFor();
+  await page.getByTestId('detect-suppliers').click();
+  await page.waitForFunction(() => document.querySelector('#view')?.getAttribute('aria-busy') === 'false' && document.querySelector('[data-testid="detect-suppliers"]')?.disabled);
+  const secondary = await snapshot();
+  const related = secondary.cases.find((item) => item.rule.id === 'supplier-shared-contact');
+  assert.ok(related);
+  assert.deepEqual(secondary.cases.filter((item) => item.rule.id === 'contact-code-match'), after.cases);
+  await page.goto(`${baseUrl}/?case_id=${related.id}#inteligencia`);
+  await page.getByRole('heading', { name: `Cadastro compartilhado entre fornecedores · ${related.id}`, exact: true }).waitFor();
+  assert.equal(await page.getByTestId('evidence-list').getByRole('heading', { name: 'Abrir registro FOR-201', exact: true }).count(), 1);
+  await choose(page.locator('#dossier-mode'), aiMode === 'real' ? 'IA real (requer configuração)' : 'Síntese local');
+  await page.getByTestId('generate-dossier').click();
+  await page.getByTestId('dossier').waitFor({ timeout: 120000 });
+  const secondaryDossier = (await (await page.request.get(`${baseUrl}/api/state?case_id=${related.id}`)).json()).case.dossier;
+  assert.ok(secondaryDossier.claims.length);
+  assert.ok(secondaryDossier.claims.every((claim) => claim.source_ids.every((id) => related.evidence.some((source) => source.id === id))));
+  assert.ok(secondaryDossier.source_ids.includes('FOR-201'));
+  assert.ok(!secondaryDossier.source_ids.some((id) => id.startsWith('EMP-')));
+
+  await page.close();
+
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  mobile.on('pageerror', (error) => pageErrors.push(error.message));
+  await mobile.goto(`${baseUrl}/#visao`);
+  await mobile.getByTestId('event-trends').scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Tabela móvel deve rolar internamente');
+  await mobile.screenshot({ path: path.join(output, 'mobile-trends.png') });
+  await mobile.goto(`${baseUrl}/?case_id=ELO-2001#impactos`);
+  const mobileForm = mobile.getByTestId('scenario-form');
+  await mobileForm.getByLabel('Probabilidade').fill('1');
+  await mobileForm.getByLabel('Impacto').fill('1');
+  await mobileForm.getByLabel('Responsável pelo registro').fill('Simuladora Mobile');
+  await mobileForm.getByLabel('Justificativa do registro').fill('Hipótese mínima registrada no celular.');
+  await mobileForm.getByRole('button', { name: 'Registrar cenário hipotético', exact: true }).tap();
+  await mobile.getByTestId('scenario-SIM-002').getByText(/Hipótese Baixa/).waitFor();
+  assert.deepEqual((await (await mobile.request.get(`${baseUrl}/api/state`)).json()).risks, before.risks);
+  await mobile.getByTestId('scenario-SIM-002').scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await mobile.screenshot({ path: path.join(output, 'mobile-scenario.png') });
+  await mobile.close();
+}
+
 async function main() {
   const response = await fetch(new URL('/api/state', baseUrl));
   assert.ok(response.ok, 'O servidor local do Elo precisa estar em execução.');
@@ -600,6 +683,7 @@ async function main() {
     await runMobile(browser, pageErrors);
     await runExpanded(browser, pageErrors);
     await runGovernance(browser, pageErrors);
+    await runInsights(browser, pageErrors);
     assert.deepEqual(pageErrors, []);
     console.log('Elo: jornada executável e navegação móvel verificadas com Playwright.');
   } finally {

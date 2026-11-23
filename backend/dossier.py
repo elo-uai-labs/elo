@@ -11,9 +11,9 @@ from urllib.request import Request, urlopen
 
 from domain import WorkflowError
 
-PROMPT_VERSION = "elo-dossier-v3"
+PROMPT_VERSION = "elo-dossier-v4"
 INSTRUCTIONS = (
-    "Redija uma síntese curta de evidências sintéticas de um possível conflito de interesses. "
+    "Redija uma síntese curta de evidências sintéticas de um indício de integridade em contratações. "
     "Use apenas as evidências recebidas. Associe a cada afirmação os IDs de suas fontes em source_ids. "
     "Explique a coincidência e sua limitação, e sugira somente uma verificação humana. "
     "Nunca atribua culpa, confirme uma irregularidade, proponha penalidade ou decida o caso."
@@ -87,8 +87,15 @@ def generate_on_device(binary, evidence, ids):
         raise WorkflowError("A síntese por IA no dispositivo não foi concluída. Confira o modelo local e tente novamente.", 502) from error
 
 
-def generate(evidence, mode):
+def generate(evidence, mode, rule_id="contact-code-match"):
     ids = [item["id"] for item in evidence]
+    if mode == "local" and rule_id == "supplier-shared-contact":
+        output = {
+            "claims": [{"text": item["detail"], "source_ids": [item["id"]]} for item in evidence],
+            "limitations": "Fornecedores podem compartilhar dados cadastrais por razões legítimas. A coincidência isolada não comprova irregularidade.",
+            "suggestion": "Verifique a origem e a atualização dos cadastros e a diligência aplicada aos fornecedores.",
+        }
+        return {**verified_dossier(output, "regra-local", ids), "mode": "local"}
     if mode == "local":
         contract, supplier, employee = ids
         output = {

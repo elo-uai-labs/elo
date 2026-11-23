@@ -171,10 +171,22 @@ async function main() {
     assert.equal(verification.status, 0, verification.stdout || verification.stderr);
 
 
+    await reviewer.goto(`${baseUrl}/#impactos`);
+    const scenarioBefore = await (await reviewer.request.get(`${baseUrl}/api/state`)).json();
+    const simulation = reviewer.getByTestId('scenario-form');
+    await simulation.getByLabel('Probabilidade').fill('4');
+    await simulation.getByLabel('Impacto').fill('5');
+    await simulation.getByLabel('Justificativa do registro').fill('Hipótese sintética por revisora autenticada.');
+    await simulation.getByRole('button', { name: 'Registrar cenário hipotético', exact: true }).click();
+    await reviewer.getByTestId('scenario-SIM-001').waitFor();
+    const scenarioAfter = await (await reviewer.request.get(`${baseUrl}/api/state`)).json();
+    assert.deepEqual(scenarioAfter.risks, scenarioBefore.risks);
+    assert.equal(scenarioAfter.scenarios[0].actor, 'reviewer');
     await login(auditor, 'auditor', '#governanca');
     assert.equal(await auditor.locator('form[data-endpoint="action"]').count(), 0);
     assert.equal((await auditor.request.post(`${baseUrl}/api/detect`, { data: {} })).status(), 403);
     assert.equal((await auditor.request.get(`${baseUrl}/api/audit/export`)).status(), 200);
+    assert.equal((await auditor.request.post(`${baseUrl}/api/scenario/create`, { data: {} })).status(), 403);
     await analyst.getByRole('button', { name: 'Sair', exact: true }).click();
     await analyst.getByRole('heading', { name: 'Entrar no Elo', exact: true }).waitFor();
     assert.equal((await analyst.request.get(`${baseUrl}/api/state`)).status(), 401);
@@ -185,7 +197,7 @@ async function main() {
 
     const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     mobile.on('pageerror', (error) => errors.push(error.message));
-    await mobile.goto(baseUrl);
+    await mobile.goto(baseUrl, { waitUntil: 'domcontentloaded' });
     await mobile.locator('p-input-password.hydrated').waitFor();
     await typography(mobile);
     assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

@@ -86,6 +86,34 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(package["files"][0]["content_base64"], payload["content_base64"])
         self.assertEqual(self.request(path="/api/evidence/EVD-9999")[0], 404)
 
+    def test_local_connector_is_not_available_over_http(self):
+        before = self.store.export_state()
+        self.assertEqual(self.request("POST", "/api/integration/import", {"source_id": "spoof"})[0], 404)
+        self.assertEqual(self.store.export_state(), before)
+
+    def test_insights_graph_and_scenarios_keep_actual_risk(self):
+        status, _, body = self.request(path="/api/insights")
+        self.assertEqual(status, 200)
+        self.assertIsNone(json.loads(body)["connections"])
+        self.assertIsNone(json.loads(body)["memory"])
+        self.request("POST", "/api/detect", {})
+        risk = self.store.read()["risk"]
+        payload = {"actor": "Analista", "reason": "Cenário hipotético", "risk_id": risk["id"], "risk_revision": risk["revision"], "likelihood": 5, "impact": 5}
+        status, _, body = self.request("POST", "/api/scenario/create", payload)
+        self.assertEqual(status, 200)
+        state = json.loads(body)
+        self.assertEqual(state["risk"], risk)
+        self.assertEqual(state["scenarios"][0]["hypothetical_level"], "Crítica")
+        status, _, body = self.request(path="/api/insights?case_id=ELO-1042")
+        self.assertEqual(status, 200)
+        result = json.loads(body)
+        self.assertEqual(result["connections"]["case_id"], "ELO-1042")
+        self.assertIn("SIM-001", [node["id"] for node in result["connections"]["nodes"]])
+        self.assertEqual(len(result["scenarios"]), 1)
+        self.assertEqual(result["trends"]["periods"][0]["detected"], 1)
+        self.assertEqual(self.request("POST", "/api/scenario/create", {**payload, "risk_revision": "stale"})[0], 409)
+        self.assertEqual(len(self.store.read()["scenarios"]), 1)
+
     def test_rejects_untrusted_origin_and_host_without_writes(self):
         for origin in ("https://attacker.example", "null", "http://127.0.0.1:51730"):
             self.assertEqual(self.request("POST", "/api/detect", {}, {"Origin": origin})[0], 403)

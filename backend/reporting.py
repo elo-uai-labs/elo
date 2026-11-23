@@ -63,8 +63,8 @@ def reviewed_case(state, case):
     copied_claims = []
     if review != 'reject':
         claims = dossier.get('claims')
-        require(dossier.get('prompt_version') == 'elo-dossier-v3' and isinstance(claims, list) and 1 <= len(claims) <= 6,
-                'O caso usa dossiê legado sem afirmações estruturadas. Selecione um caso com dossiê v3 revisado para reutilizar as afirmações.')
+        require(dossier.get('prompt_version') in {'elo-dossier-v3', 'elo-dossier-v4'} and isinstance(claims, list) and 1 <= len(claims) <= 6,
+                'O caso usa dossiê legado sem afirmações estruturadas. Selecione um caso com dossiê estruturado v3/v4 revisado para reutilizar as afirmações.')
         for claim in claims:
             text = required(claim, 'text', 2400)
             ids = claim.get('source_ids')

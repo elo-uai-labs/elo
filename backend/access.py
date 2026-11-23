@@ -176,6 +176,10 @@ class AccessService:
         data = data or {}
         if command in READS:
             return
+        if command == 'scenario/create':
+            if not roles & {'analyst', 'reviewer', 'admin'}:
+                raise WorkflowError('Seu perfil não permite criar uma simulação.', 403)
+            return
         if command == 'evidence/upload':
             action_id = data.get('action_id')
             if action_id is None:

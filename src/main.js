@@ -27,6 +27,8 @@ const selectedFiles = new Map();
 let sending = false;
 let laboratoryResult;
 let supervisionResult;
+let insights;
+let insightsError = '';
 let selectedCaseId = new URL(location.href).searchParams.get('case_id');
 
 function cases() {
@@ -64,12 +66,12 @@ function loginScreen() {
 }
 
 function permissionReason(endpoint, form) {
-  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'logout'].includes(endpoint)) return '';
+  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'logout'].includes(endpoint)) return '';
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
-  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create'];
-  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review'];
+  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create', 'scenario/create'];
+  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review', 'scenario/create'];
   const uploadActionId = form.querySelector('input[name=action_id]')?.value;
   const uploadAllowed = endpoint === 'evidence/upload' && (uploadActionId ? roles.some((role) => ['operator', 'analyst', 'admin'].includes(role)) : roles.some((role) => ['analyst', 'reviewer', 'admin'].includes(role)));
   const permitted = uploadAllowed || roles.includes('admin') || (analyst.includes(endpoint) && roles.includes('analyst')) ||
@@ -92,6 +94,7 @@ async function loadWorkspace() {
   ]);
   state = nextState;
   people = directory.people;
+  await refreshInsights();
 }
 
 function expiredSession(error) {
@@ -100,6 +103,8 @@ function expiredSession(error) {
   state = undefined;
   people = [];
   selectedFiles.clear();
+  insights = undefined;
+  insightsError = '';
   supervisionResult = undefined;
   laboratoryResult = undefined;
   render();
@@ -176,6 +181,73 @@ function decisionOutcome(outcome) {
   return format(outcome);
 }
 
+async function refreshInsights() {
+  if (!state) return;
+  try {
+    insights = await read(`/api/insights${state.case ? `?case_id=${encodeURIComponent(state.case.id)}` : ''}`);
+    insightsError = '';
+  } catch (error) {
+    insights = undefined;
+    insightsError = error.message;
+    if (error.status === 401) throw error;
+  }
+}
+
+function insightFeedback() {
+  return insightsError ? `<p-inline-notification state="error" heading="Contexto analítico indisponível" description="${escape(insightsError)}" dismiss-button="false"></p-inline-notification><form data-endpoint="insights/read"><p-button variant="secondary" icon="none" type="submit">Atualizar contexto analítico</p-button></form>` : '';
+}
+
+function trendsPanel() {
+  const trend = insights?.trends;
+  const headings = ['Mês', 'Indícios', 'Fragilidades', 'Monitoramentos', 'Descartes', 'Planos concluídos'];
+  return panel('Evolução mensal', `${insightFeedback()}${trend ? `<p-text size="sm">${escape(trend.scope)}</p-text><p-text size="sm" color="contrast-high">Fuso de referência: ${escape(trend.timezone)}</p-text>
+    ${trend.periods.length ? `<p-table caption="Eventos registrados por mês" data-testid="event-trends"><p-table-head><p-table-head-row>${headings.map((label) => `<p-table-head-cell>${label}</p-table-head-cell>`).join('')}</p-table-head-row></p-table-head><p-table-body>${trend.periods.map((period) => `<p-table-row>${['period', 'detected', 'qualified', 'monitored', 'discarded', 'completed'].map((key) => `<p-table-cell>${escape(period[key])}</p-table-cell>`).join('')}</p-table-row>`).join('')}</p-table-body></p-table>` : '<p-text size="sm">Nenhum evento registrado para compor a evolução mensal.</p-text>'}` : ''}`);
+}
+
+function memoryPanel() {
+  const memory = insights?.memory;
+  return panel('Memória institucional', `${insightFeedback()}${memory ? `<p-text size="sm" color="contrast-high">${escape(memory.methodology)}</p-text>
+    ${memory.matches.length ? `<p-text-list class="record-list" data-testid="similar-cases">${memory.matches.map((item) => `<p-text-list-item><div class="entry-content">
+      <p-link-pure icon="none" href="?case_id=${encodeURIComponent(item.case_id)}#inteligencia">Abrir ${escape(item.case_id)}</p-link-pure>
+      <p-text size="sm">Pontuação de correspondência: ${escape(item.score)} · ${item.reasons.map(escape).join(' · ')}</p-text>
+      <p-text weight="semibold">Decisão anterior: ${decisionOutcome(item.decision.outcome)} · ${escape(item.decision.actor)}</p-text><p-text>${escape(item.decision.reason)}</p-text>
+    </div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Nenhum outro caso revisado compartilha os critérios de correspondência.</p-text>'}` : '<p-text size="sm">Selecione um caso para consultar decisões anteriores relacionadas.</p-text>'}`);
+}
+
+function connectionsPanel() {
+  const graph = insights?.connections;
+  const label = (id) => {
+    const item = graph.nodes.find((node) => node.id === id);
+    return `${escape(id)}${item?.label && item.label !== id ? ` · ${escape(item.label)}` : ''}`;
+  };
+  return panel('Conexões do caso', `${insightFeedback()}${graph ? `<p-text size="sm">${escape(graph.scope)}</p-text>
+    <p-text-list class="record-list" data-testid="case-connections">${graph.edges.map((edge) => `<p-text-list-item><div class="entry-content"><p-text weight="semibold">${label(edge.source)} → ${label(edge.target)}</p-text><p-text size="sm" color="contrast-high">${escape(edge.relation)}</p-text></div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Execute uma análise para consultar os registros conectados.</p-text>'}`);
+}
+
+function scenarioPanel() {
+  const active = (state.risks || []).filter((item) => !item.archived);
+  const scenarios = state.scenarios || insights?.scenarios || [];
+  return panel('Simulador de cenários', `<p-tag variant="warning">Metodologia ilustrativa</p-tag>
+    <p-text>Explore probabilidade e impacto de 1 a 5. O cenário é registrado separadamente e não altera a avaliação vigente do risco.</p-text>
+    ${active.length ? `<form class="form" data-endpoint="scenario/create" data-testid="scenario-form">
+      ${selectField('scenario-risk', 'risk_id', 'Risco para simular', active.map((item) => [item.id, item.name]), active.some((item) => item.id === state.risk.id) ? state.risk.id : active[0].id)}
+      <div class="form-grid"><p-input-number id="scenario-likelihood" name="likelihood" label="Probabilidade" min="1" max="5" step="1" required></p-input-number>
+      <p-input-number id="scenario-impact" name="impact" label="Impacto" min="1" max="5" step="1" required></p-input-number></div>
+      ${auditFields('scenario')}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Registrar cenário hipotético</p-button></div>
+    </form>` : '<p-text size="sm">Cadastre um risco ativo para simular cenários.</p-text>'}
+    ${scenarios.length ? `<p-text-list class="record-list">${[...scenarios].reverse().map((scenario) => `<p-text-list-item><div class="entry-content" data-testid="scenario-${escape(scenario.id)}">
+      <p-text weight="semibold">${escape(scenario.id)} · ${escape(scenario.risk_id)} · Hipótese ${escape(scenario.hypothetical_level)}</p-text>
+      <p-text size="sm">Avaliação vigente no registro: ${escape(scenario.current_level)} · ${scenario.likelihood} × ${scenario.impact} = ${scenario.score}</p-text>
+      <p-text>${escape(scenario.reason)} · ${escape(scenario.actor)}</p-text><p-text size="sm">${escape(scenario.methodology)}</p-text><p-text weight="semibold" size="sm">${escape(scenario.effect)}</p-text>
+    </div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm" color="contrast-high">Nenhum cenário hipotético registrado.</p-text>'}`);
+}
+
+function integrationPanel() {
+  const batches = state.integration_batches || [];
+  return panel('Lotes do serviço local', `<p-text size="sm">Importação sintética iniciada explicitamente pela ferramenta local. Estes registros não representam integração com sistemas institucionais.</p-text>
+    ${batches.length ? `<p-text-list>${batches.slice(-5).reverse().map((batch) => `<p-text-list-item><div class="entry-content"><p-text weight="semibold">${escape(batch.id)} · ${escape(batch.source_name)}</p-text><p-text size="sm">${escape(batch.at)} · ${escape(batch.actor)} · ${batch.contracts_analyzed} contrato(s) analisado(s) · ${batch.case_ids.length} indício(s)</p-text><p-text size="sm">Importados: ${batch.imported_counts.employees} empregado(s), ${batch.imported_counts.suppliers} fornecedor(es), ${batch.imported_counts.contracts} contrato(s).</p-text><p-text class="technical" size="xs">SHA-256: ${escape(batch.content_sha256)}</p-text></div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Nenhum lote do serviço local registrado.</p-text>'}`);
+}
+
 function overview() {
   const current = state.case;
   const unreviewed = cases().filter((item) => !item.decision).length;
@@ -208,7 +280,7 @@ function overview() {
     <section class="hero" aria-label="Caso de demonstração">
       <div class="hero-copy">
         <p-text size="sm" color="contrast-high">Caso de demonstração</p-text>
-        <p-heading tag="h2" size="2xl">Possível conflito de interesses</p-heading>
+        <p-heading tag="h2" size="2xl">${escape(current?.title || 'Possível conflito de interesses')}</p-heading>
         <p-text color="contrast-high">Investigue um vínculo cadastral em uma contratação e avalie seus impactos.</p-text>
         <p-link variant="primary" icon="none" href="#inteligencia" data-testid="open-intelligence">${current ? 'Abrir caso' : 'Abrir central de inteligência'}</p-link>
       </div>
@@ -218,7 +290,7 @@ function overview() {
       </div>
     </section>
     <section class="metric-strip" aria-label="Indicadores de todos os casos">${indicators}</section>
-    <div class="grid">${panel(`Jornada do caso${current ? ` · ${escape(current.id)}` : ''}`, `<p-text-list class="record-list" type="numbered">${journey}</p-text-list>`)}${datasetPanel()}</div>`;
+    <div class="grid">${panel(`Jornada do caso${current ? ` · ${escape(current.id)}` : ''}`, `<p-text-list class="record-list" type="numbered">${journey}</p-text-list>`)}${datasetPanel()}</div>${trendsPanel()}${integrationPanel()}`;
 }
 
 function evidenceList(current) {
@@ -313,20 +385,21 @@ function supervisionPanel() {
 function detectionPanel() {
   const lastDetection = state.audit.findLast((event) => Array.isArray(event.details.case_ids));
   const noNewMatches = lastDetection && lastDetection.details.case_ids.length === 0;
-  const pending = state.dataset.contracts.filter((item) => !(state.detection?.processed_contract_ids || []).includes(item.id)).length;
-  return panel('Detecção de indícios', `<p-text>${state.detection ? `${cases().length} indício(s) detectado(s). ${pending} contrato(s) ainda não analisado(s).` : 'Execute a regra de cruzamento da base sintética de contratação.'}</p-text>
-    ${noNewMatches ? '<p-inline-notification state="success" heading="Análise concluída sem novos indícios" description="Nenhum contrato do último lote analisado apresentou igualdade entre os códigos cadastrais do aprovador e do fornecedor. Esse resultado não comprova ausência de outros riscos." dismiss-button="false"></p-inline-notification>' : ''}
-    <form class="form" data-endpoint="detect"><div class="actions"><p-button variant="primary" icon="none" data-testid="detect" type="submit"${state.detection && !pending ? ' disabled' : ''}>Executar análise</p-button></div></form>`);
+  const rules = state.rules || [{ id: 'contact-code-match', name: 'Vínculo entre aprovador e fornecedor', description: 'Compara os códigos cadastrais do aprovador e do fornecedor.', version: '1', pending_count: state.dataset.contracts.filter((item) => !(state.detection?.processed_contract_ids || []).includes(item.id)).length }];
+  return panel('Detecção de indícios', `<p-text>${cases().length} indício(s) registrado(s). Cada regra requer análise e revisão humana independentes.</p-text>
+    ${noNewMatches ? '<p-inline-notification state="success" heading="Análise concluída sem novos indícios" description="A última execução não encontrou novos vínculos pela regra selecionada. Esse resultado não comprova ausência de outros riscos." dismiss-button="false"></p-inline-notification>' : ''}
+    ${rules.map((rule) => `<section class="stack"><p-heading tag="h3" size="md">${escape(rule.name)}</p-heading><p-text size="sm">${escape(rule.description)}</p-text><p-text size="sm">Versão ${escape(rule.version)} · ${rule.pending_count} contrato(s) pendente(s)</p-text>
+      <form class="form" data-endpoint="detect">${hidden('rule_id', rule.id)}<div class="actions"><p-button variant="${rule.id === 'contact-code-match' ? 'primary' : 'secondary'}" icon="none" data-testid="${rule.id === 'contact-code-match' ? 'detect' : 'detect-suppliers'}" type="submit"${!rule.pending_count ? ' disabled' : ''}>${rule.id === 'contact-code-match' ? 'Executar análise' : 'Analisar fornecedores relacionados'}</p-button></div></form></section>`).join('')}`);
 }
 
 function intelligence() {
   const title = heading('Central de inteligência', 'Revise o vínculo identificado, consulte as fontes e registre a decisão humana.');
   const current = state.case;
   if (!current) return `${title}<div class="grid">${detectionPanel()}<div class="stack">${datasetPanel()}${laboratoryPanel()}</div></div>`;
-  const caseSummary = panel(`Possível conflito de interesses · ${escape(current.id)}`, '<p-text>O vínculo cadastral requer revisão humana. As evidências não demonstram, por si só, uma irregularidade.</p-text>', badge(current.status));
+  const caseSummary = panel(`${escape(current.title || 'Possível conflito de interesses')} · ${escape(current.id)}`, '<p-text>O vínculo cadastral requer revisão humana. As evidências não demonstram, por si só, uma irregularidade.</p-text>', badge(current.status));
   return `${title}<div class="grid">
     <div class="stack">${caseSummary}${dossierPanel(current.dossier, Boolean(current.decision))}${decisionPanel(current)}${caseLinks()}</div>
-    <div class="stack">${evidenceList(current)}${detectionPanel()}${datasetPanel()}${laboratoryPanel()}</div>
+    <div class="stack">${memoryPanel()}${evidenceList(current)}${detectionPanel()}${datasetPanel()}${laboratoryPanel()}</div>
   </div>`;
 }
 
@@ -489,7 +562,7 @@ function impacts() {
     ? `<p-text-list class="record-list">${current.impacts.map(impactCard).join('')}</p-text-list><div class="actions"><p-link variant="secondary" icon="none" href="#governanca">Abrir plano e auditoria</p-link></div>`
     : '<p-text color="contrast-high">As propostas são geradas quando um analista registra uma fragilidade.</p-text><div class="actions"><p-link variant="secondary" icon="none" href="#inteligencia">Abrir central de inteligência</p-link></div>';
   return `${heading('Risco e maturidade', 'Avalie cada impacto proposto a partir da fragilidade qualificada.')}
-    <div class="grid">${panel('Impactos propostos', proposals)}<div class="stack">${risk}${maturity}</div></div><div class="grid">${catalogPanel()}${maturityCatalog()}</div>`;
+    <div class="grid">${panel('Impactos propostos', proposals)}<div class="stack">${risk}${maturity}</div></div><div class="grid">${catalogPanel()}${maturityCatalog()}</div><div class="grid">${connectionsPanel()}${scenarioPanel()}</div>`;
 }
 
 function actionForm() {
@@ -546,14 +619,14 @@ function reportCase(item) {
 }
 
 function reportsPanel() {
-  const eligible = cases().filter((item) => item.decision && (item.decision.review === 'reject' || item.dossier?.prompt_version === 'elo-dossier-v3'));
+  const eligible = cases().filter((item) => item.decision && (item.decision.review === 'reject' || ['elo-dossier-v3', 'elo-dossier-v4'].includes(item.dossier?.prompt_version)));
   const create = eligible.length ? `<form class="form" data-endpoint="report/create" data-testid="report-create">
     ${field('report-title', 'title', 'Título do relatório')}
     <p-text weight="semibold" size="sm">Casos revisados a incluir (até 20)</p-text>
     ${eligible.map((item) => `<p-checkbox name="case_ids" value="${escape(item.id)}" label="${escape(item.id)} · ${decisionOutcome(item.decision.outcome)}" autocomplete="off"></p-checkbox>`).join('')}
     ${field('report-actor', 'actor', 'Responsável pela compilação')}
     <div class="actions"><p-button variant="secondary" icon="none" type="submit">Criar rascunho de relatório</p-button></div>
-  </form>` : '<p-text size="sm">Revise um dossiê v3 e registre uma decisão humana para compilar o relatório. Casos com sugestão rejeitada podem ser incluídos com a decisão e as fontes, sem reutilizar suas afirmações.</p-text>';
+  </form>` : '<p-text size="sm">Revise um dossiê com afirmações e fontes e registre uma decisão humana para compilar o relatório. Casos com sugestão rejeitada podem ser incluídos com a decisão e as fontes, sem reutilizar suas afirmações.</p-text>';
   const reports = (state.reports || []).map((report) => `<section class="panel" data-testid="report-${escape(report.id)}"><div class="entry-header"><p-heading tag="h3" size="md">${escape(report.title)} · ${escape(report.id)}</p-heading>${badge(report.status)}</div>
     <p-text size="sm">${escape(report.scope)}</p-text><p-text size="sm">${escape(report.generation)}</p-text>
     <p-text size="sm" color="contrast-high">Compilado por ${escape(report.creator)} · ${escape(new Date(report.created_at).toLocaleString('pt-BR'))}</p-text>
@@ -736,6 +809,11 @@ view.addEventListener('submit', async (event) => {
     const endpoint = form.getAttribute('data-endpoint');
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData);
+    if (endpoint === 'scenario/create') {
+      payload.likelihood = Number(payload.likelihood);
+      payload.impact = Number(payload.impact);
+      payload.risk_revision = state.risks.find((item) => item.id === payload.risk_id)?.revision;
+    }
     if (endpoint === 'report/create') payload.case_ids = formData.getAll('case_ids');
     if (endpoint === 'evidence/upload') {
       const file = selectedFiles.get(form.getAttribute('data-upload-key'));
@@ -773,8 +851,12 @@ view.addEventListener('submit', async (event) => {
       state = undefined;
       people = [];
       selectedFiles.clear();
+      insights = undefined;
+      insightsError = '';
       supervisionResult = undefined;
       laboratoryResult = undefined;
+    } else if (endpoint === 'insights/read') {
+      await refreshInsights();
     } else if (endpoint === 'laboratory/run' || endpoint === 'supervision/read') {
       if (endpoint === 'laboratory/run') laboratoryResult = await read('/api/laboratory');
       else supervisionResult = await read('/api/supervision');
@@ -790,17 +872,18 @@ view.addEventListener('submit', async (event) => {
       if (endpoint === 'evidence/upload') selectedFiles.delete(form.getAttribute('data-upload-key'));
       supervisionResult = undefined;
     }
+    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read'].includes(endpoint)) await refreshInsights();
     if (state) selectedCaseId = state.case?.id || null;
     const url = new URL(location.href);
     if (selectedCaseId) url.searchParams.set('case_id', selectedCaseId);
     else url.searchParams.delete('case_id');
     history.replaceState(null, '', url);
     sending = false;
-    announce(endpoint === 'login' ? 'Sessão iniciada.' : endpoint === 'logout' ? 'Sessão encerrada.' : endpoint === 'select-case' ? 'Caso selecionado.' : endpoint === 'laboratory/run' || endpoint === 'supervision/read' ? 'Consulta concluída.' : 'Registro atualizado.');
+    announce(endpoint === 'login' ? 'Sessão iniciada.' : endpoint === 'logout' ? 'Sessão encerrada.' : endpoint === 'select-case' ? 'Caso selecionado.' : ['laboratory/run', 'supervision/read', 'insights/read'].includes(endpoint) ? 'Consulta concluída.' : 'Registro atualizado.');
     render();
     view.querySelector('p-heading[tag=h1]')?.focus({ preventScroll: true });
   } catch (error) {
-    if (form.getAttribute('data-endpoint') !== 'login') expiredSession(error);
+    if (form.getAttribute('data-endpoint') !== 'login' || session?.authenticated) expiredSession(error);
     announce(error.message, true);
   } finally {
     sending = false;

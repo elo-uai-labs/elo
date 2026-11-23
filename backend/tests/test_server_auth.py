@@ -66,7 +66,7 @@ class AuthServerTest(unittest.TestCase):
         return cookie, state
 
     def test_session_auth_protection_cookie_logout_expiry(self):
-        for path in ('/api/state', '/api/audit/export', '/api/supervision', '/api/laboratory', '/api/people', '/api/evidence/EVD-0001'):
+        for path in ('/api/state', '/api/audit/export', '/api/supervision', '/api/laboratory', '/api/insights', '/api/people', '/api/evidence/EVD-0001'):
             self.assertEqual(self.request(path=path)[0], 401)
         status, _, state = self.request(path='/api/session')
         self.assertEqual(state, {'auth_required': True, 'authenticated': False, 'user': None, 'mode': 'local-auth'})
@@ -144,6 +144,18 @@ class AuthServerTest(unittest.TestCase):
         self.assertEqual(state['reports'][0]['status'], 'approved')
         self.assertEqual(state['reports'][0]['review']['actor'], 'bob')
         self.assertTrue(state['audit_valid'])
+
+    def test_scenario_authorization_is_server_side(self):
+        auditor = self.login('eve')
+        risk = self.store.read()['risk']
+        payload = {'actor': 'admin', 'reason': 'Simulação sintética', 'risk_id': risk['id'], 'risk_revision': risk['revision'], 'likelihood': 1, 'impact': 1}
+        self.assertEqual(self.request('POST', '/api/scenario/create', payload, auditor)[0], 403)
+        self.assertEqual(self.store.read()['scenarios'], [])
+        reviewer = self.login('bob')
+        status, _, state = self.request('POST', '/api/scenario/create', payload, reviewer)
+        self.assertEqual(status, 200)
+        self.assertEqual(state['scenarios'][0]['actor'], 'bob')
+        self.assertEqual(state['risk'], risk)
 
     def test_login_origin_and_invalid_config_fail_closed(self):
         self.assertEqual(self.request('POST', '/api/login', {'username': 'alice', 'password': self.secret}, headers={'Origin': 'https://evil.example'})[0], 403)

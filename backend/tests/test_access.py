@@ -187,6 +187,12 @@ class AccessTest(unittest.TestCase):
         state['reports'][0]['creator'] = 'analyst'
         self.service.authorize(self.user('admin'), 'report/review', state, {'id': 'RPT-001'})
 
+    def test_scenarios_require_analytical_or_review_role(self):
+        for role in ('analyst', 'reviewer', 'admin'):
+            self.service.authorize(self.user(role), 'scenario/create')
+        for role in ('operator', 'auditor'):
+            self.assert_status(403, lambda: self.service.authorize(self.user(role), 'scenario/create'))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,6 +8,7 @@ Versão fixada: `@porsche-design-system/components-js@4.10.1`. Integração Vani
 | Títulos, descrições e indicadores | p-heading, p-text |
 | Jornada, evidências, impactos e auditoria | p-text-list, p-text-list-item, p-tag |
 | Ações e links de etapa | p-button, p-link, p-link-pure |
+| Evolução mensal | p-table, p-table-head, p-table-head-row, p-table-head-cell, p-table-body, p-table-row, p-table-cell |
 | Login local | p-input-text, p-input-password, p-button, p-inline-notification |
 | Decisão, avaliações e planos | p-input-text, p-input-date, p-input-number, p-checkbox, p-select, p-select-option, p-textarea |
 | Detalhamento e andamento | p-accordion com slot summary + p-heading |

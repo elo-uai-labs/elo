@@ -49,7 +49,7 @@ class ClaimValidationTest(unittest.TestCase):
         evidence = match_case(DATASET)["evidence"]
         result = dossier.generate(evidence, "local")
         self.assertEqual(len(result["claims"]), 2)
-        self.assertEqual(result["prompt_version"], "elo-dossier-v3")
+        self.assertEqual(result["prompt_version"], "elo-dossier-v4")
         for invalid_sources in ([], ["EMP-UNKNOWN"]):
             changed = deepcopy(result)
             changed["claims"][1]["source_ids"] = invalid_sources
