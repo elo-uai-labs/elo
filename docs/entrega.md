@@ -1,3 +1,23 @@
+# Evolução paralela pelo orquestrador · 23/11/2026
+
+Implementadas as frentes locais independentes do diagnóstico: avaliação reproduzível de IA/OCR com gabaritos sintéticos e revisão identificada; avisos in-app, filtros de trabalhos, SLA por prazo vigente e recorrência por regra/fornecedor; terceira tipologia experimental de perfil contratual repetido; guardas explícitas de ambiente local e exigência opcional de login; pacote atualizado para revisão da Ana e preparação do piloto/candidatura. Notificações são calculadas ao carregar/atualizar; não há envio externo ou trabalho em segundo plano. Fontes, metodologia e infraestrutura corporativas continuam dependências.
+
+## Aceite técnico
+
+`npm test` aprovado: **218 testes backend + 5 testes offline da avaliação**, build, E2E integrado desktop/celular, autenticação e novo E2E operacional. Terceira regra com fontes e síntese local,14 casos, 120 eventos íntegros no pacote final e estado idêntico após reinício. O teste da terceira regra seleciona síntese local explicitamente; evita chamadas pagas involuntárias. O ajuste final da UI limita 20 IDs por grupo; build autenticado e teste operacional já usam esse delta. PDS 4.10.1: 503 propriedades enum literais válidas, Porsche Next/glifos web verificados; capturas inspecionadas. Banco manual nunca usado nos testes.
+
+IA: 8 respostas reais GPT-6.2 Sol, zero falhas, p50=3,020s, p95=3,841s; revisão semântica por agente independente das fontes/respostas:9/9 afirmações sustentadas, 0/9 fatos esperados omitidos, 0/8 limitações/sugestões inseguras. Avaliação não humana e amostra pequena/sintética, sem precisão populacional reivindicada. OCR: 0/198 erros de caracteres nos quatro legíveis, 6/6 triagens; degradado 48/48 omitidos corretamente inconclusivo. Sonda real adicional da terceira tipologia passou: reconheceu perfil igual com diferenças de caixa/espaço, citou CTR-R1/CTR-R2 e não concluiu duplicidade ou irregularidade. Resultados em `output/validation/evaluation/` e `repeated-real.json`.
+
+Revisões independentes: [segurança](reviews/security-parallel.md), [DBA](reviews/dba-parallel.md), [performance](reviews/performance-parallel.md) e [geral/PDS](reviews/general-parallel.md). Achado de modo do teste corrigido em 67d0c93; espera de resposta corrigida em 2a51b5f; IDs de caso validados em d68f8f6; prévia visual limitada em 13d5d8b. Sem bloqueadores pendentes no escopo local. Performance: 2.000 contratos/5.996 sinais, concorrência 4, p95=1,581s, máximo1,643s, zero erros e integridade preservada; meta provisória < 2 s. Não mede carga corporativa sustentada/HTTP/renderização máxima.
+
+Log canônico preservado em `output/validation/parallel-canonical.log`; resultados `result-local.json`, `result-auth.json`, `operations-e2e.json`, `repeated.json` e `performance-parallel.json`. Commits de implementação/revisão locais; nenhum push, publicação, envio ou submissão.
+
+## Materiais e dependências
+
+[Pacote de revisão](pacote-ana/README.md), [operação de equipes](operacao-equipes.md), [avaliação IA/OCR](avaliacao-ia-ocr.md), [tipologia](tipologia-perfil-repetido.md) e [guardas locais](runtime-local.md). O pacote registra versões/hashes e distingue material preparatório de homologação. Custos/equipe/prazos comerciais não foram inventados. A eventual vigência de documentos oficiais e prazo do certame deve ser confirmada nas fontes oficiais antes da candidatura.
+
+---
+
 # Jornada completa OpenAI · 23/11/2026
 
 `ELO_AI_PROVIDER=openai ELO_MODEL=gpt-6.2-sol ELO_TEST_DOSSIER=real npm run test:e2e` aprovado com chamadas reais e banco temporário. Dossiês com afirmações/fontes visíveis, recuperação de falha simulada, revisão humana, consultas reais ao risco (`RSK-001`) e ao documento revisado (`EVD-0001`) passaram. Ambas as consultas reais retornaram `gpt-6.2-sol`, sem abstenção, e não alteraram os registros de negócio. Navegação desktop/celular, PDS 4.10.1 e glifos Porsche Next, exportação íntegra e estado idêntico após reinício foram verificados.

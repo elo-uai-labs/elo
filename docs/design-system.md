@@ -37,3 +37,7 @@ Prévia CSV/XLSX usa p-select/p-select-option para tabela, aba e mapeamento; p-c
 ## Reconhecimento OCR
 
 Ação explícita por `p-button` oficial, estado por `p-tag`/`p-inline-notification`, metadados e regiões por `p-text`/`p-text-list`, e conferência adicional por `p-checkbox`. A aceitação exige confirmação específica no servidor. As coordenadas percentuais ajudam a localizar o trecho na página/imagem original. A tipografia e as variantes oficiais permanecem inalteradas.
+
+## Operação e tipologia experimental
+
+Avisos/SLA/recorrência usam p-tag, p-text, p-text-list, p-heading, p-button e p-link-pure oficiais; filtros usam p-select/p-select-option/p-input-text. Nenhum CSS/internals alterado. Revisão de 503 propriedades enum válida; E2E operacional desktop/celular verificou glifos web Porsche Next, filtros combinados/vazios, resolução de aviso e cumprimento de prazo. Terceira regra usa botão secundário e identificação experimental.
