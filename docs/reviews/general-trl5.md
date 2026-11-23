@@ -48,3 +48,21 @@ Hashes do delta:
 
 - `scripts/trl-crash-transaction.py`: `ccc1fe39e0220937e502eceed1c1d12df571bb7488978f9b6e0e243d78cc2e7b`.
 - `scripts/trl-bundle.py`: `63f14c43dc2d6d62b873be887dc4e5354ee77d4e9b606fd8cabcdf4864800741`.
+
+
+## Complemento: OCR e OpenAI durante leituras autenticadas
+
+Revisão estática dos commits `96c0e59`/`a1cc3d2`, no snapshot `01ecb53e341518c100d35765824bed2d91383de7`. Sem bloqueador identificado neste delta de harness/documentação; não alterei runtime nem repeti chamadas pagas. Conferi que os hashes dos dois runners no artefato correspondem aos arquivos revisados.
+
+A subclasse mantém banco/contas temporários e limita o fluxo sequencial a duas tentativas reais, contadas antes da chamada e sem retry. Os flags explícitos são exigidos no wrapper e no Python; smoke esvazia a chave do subprocesso. Leitores executam somente leitura; erros de futures são propagados. A fixture OCR já conhecida é conferida por hash e por texto dos segmentos, preservando o gabarito; a correção do comparador não é apresentada como melhoria do motor. A revisão é automatizada sob conta sintética, expressamente assim registrada, embora o rótulo normal de fonte do produto diga “conferido por pessoa”; este artefato não comprova revisão humana.
+
+O relatório registra duas respostas `gpt-6.2-sol`, 144 leituras em janela curta de 7,801s, p95 de leitura 0,01360s, zero erros inesperados e duas negativas403. Conferi a resposta de total330,00 contra o texto OCR citado, 1639tokens reportados e os indicadores de reinício/integridade:6eventos de negócio e157eventos de acesso. O dossiê cita dados sintéticos do caso e a consulta cita EVD-0001; a asserção de estado protegido impede que a consulta mude os objetos comparados. São verificações funcionais limitadas; não estimam precisão populacional, capacidade sustentada com IA, percentis de geração ou representatividade corporativa.
+
+O complemento permanece separado da primeira avaliação e da regressão exposta. Não apaga as falhas prévias IA/OCR, não constitui novo holdout e não promove TRL automaticamente. A discrepância documentada entre timeout HTTP15s e provedor30s continua limite explícito: uma falha pode ter custo sem resposta persistida. O aceite canônico final continua responsabilidade da integração.
+
+Hashes SHA-256:
+
+- `scripts/trl-real-operation.py`: `3f89ef5ff2b54d7c7e4171e094313f1d66e5ff7242e1357497f986041ffe6196`.
+- `scripts/trl-real-operation.mjs`: `487d17a3479f1424c331c25fdafde1bca8276e6bc49531674d520479f5ef4c05`.
+- `docs/trl-real-operation.md`: `db0fd46df0406a833dfdbc646539de49087d17865eb10a3324d9379f360be122`.
+- `output/validation/trl5/real-operation.json`: `d1d0ebd4ce5938546e469036b52dd30174aae40a2c20e2b610ba03d9109a7a74`.
