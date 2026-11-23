@@ -1,0 +1,131 @@
+{
+  "version": "elo-independent-ocr-v1",
+  "scope": "Independent agent authorship, synthetic generated documents; not human/domain validation. Frozen before executing OCR. No tuning to OCR outputs.",
+  "criteria_before_execution": {
+    "legible_cer_max": 0.05,
+    "triage_match_rate": 1.0,
+    "blank_false_characters": 0
+  },
+  "cases": [
+    {
+      "expected_inconclusive": false,
+      "expected_text": "MEMORANDO SINTÉTICO\nUnidade fictícia: Núcleo Aurora\nProtocolo: 8642/2028\nSolicitação recebida em 23/08/2028\nPrazo de resposta: 12 dias úteis\nDocumento criado apenas para teste",
+      "file": "memorandum.png",
+      "font_size": 34,
+      "mime": "image/png",
+      "render_font": "Helvetica",
+      "sha256": "e22293fd97e865dfd192f157d5f2c0544cbcc444a625dda759fbf2a5627b151d",
+      "bytes": 83246
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "INVENTÁRIO FICTÍCIO\nMaterial          Quantidade\nCadeiras          24\nMesas             16\nArmários          8\nConferência física pendente",
+      "file": "inventory.png",
+      "font_size": 31,
+      "mime": "image/png",
+      "render_font": "Menlo",
+      "sha256": "de3b7e7079b3376e7910767d16973023461beb726e839b08cbf54509eea66f12",
+      "bytes": 68833
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "NOTA SINTÉTICA DE AJUSTE\nValor anterior: R$ 7.250,00\nAbatimento: R$ 125,50\nSaldo informado: R$ 7.124,50\nNão comprova pagamento",
+      "file": "credit.jpg",
+      "font_size": 38,
+      "mime": "image/jpeg",
+      "render_font": "Times New Roman",
+      "sha256": "a0178305a4422577b2484e3957e0f6028ce0b856ca371bc9822adc49cddfe41c",
+      "bytes": 63794
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "CRONOGRAMA FICTÍCIO\nEtapa Alfa: 03/02/2029\nEtapa Beta: 27/03/2029\nEtapa Gama: sem data definida\nAprovação ainda não registrada",
+      "file": "schedule.pdf",
+      "font_size": 32,
+      "mime": "application/pdf",
+      "render_font": "Helvetica",
+      "sha256": "017f12a2a9de9a09f33f05d0b418aa933f2cc5b6d49495c8d902f2bbded8203b",
+      "bytes": 60495
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "ATRIBUIÇÕES SINTÉTICAS\nPreparação: Cecília Gonçalves\nConferência: André Nóbrega\nRevisão: Lívia Assunção\nNenhuma assinatura foi coletada",
+      "file": "responsibility.png",
+      "font_size": 36,
+      "mime": "image/png",
+      "render_font": "Helvetica",
+      "sha256": "32bc1bd1b4933c62815105fa88eba98e88f0e94825ddc4b6e5d87982a6ca644a",
+      "bytes": 78063
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "ATA FICTÍCIA DE REUNIÃO\nParticipantes previstos: 18\nParticipantes presentes: 13\nAusências justificadas: 5\nDeliberação: solicitar documentação\nNão houve decisão sobre impactos",
+      "file": "minutes.jpg",
+      "font_size": 36,
+      "mime": "image/jpeg",
+      "render_font": "Times New Roman",
+      "sha256": "a9ebfaf16f04663267d43dd066a94a31e426050685ff37cd8e92312085bd4fb8",
+      "bytes": 70783
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "CONTROLE SINTÉTICO DE ENTREGA\nLote: AZ-882\nUnidades previstas: 460\nUnidades recebidas: 452\nDivergência registrada: 8\nConferência qualitativa pendente",
+      "file": "delivery.png",
+      "font_size": 30,
+      "mime": "image/png",
+      "render_font": "Menlo",
+      "sha256": "300f7efe0b6184e98b20195f7ec4f62b8608bf589648baa0811ef0b4ef19d2ab",
+      "bytes": 80298
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "AVISO SINTÉTICO\nHorário de atendimento: 09:30 a 16:45\nCanal fictício: atendimento interno\nNão há dados pessoais reais\nRegistro sem efeito administrativo",
+      "file": "notice.pdf",
+      "font_size": 32,
+      "mime": "application/pdf",
+      "render_font": "Helvetica",
+      "sha256": "a3cfbbf83dad5af1981f59d128b9b2e3f89c8b3959e4b7c1a2c09b3ea2fdcfc2",
+      "bytes": 61421
+    },
+    {
+      "expected_inconclusive": false,
+      "expected_text": "DECLARAÇÃO DE TESTE\nO documento não atesta regularidade.\nO campo de aprovação está vazio.\nA ausência não significa reprovação.\nA análise depende de revisão humana.",
+      "file": "negative.png",
+      "font_size": 34,
+      "mime": "image/png",
+      "render_font": "Helvetica",
+      "sha256": "720923dd15fd83e773021e08f1ab4e4c4f791f8517ebda8a5510cffadbbea545",
+      "bytes": 77097
+    },
+    {
+      "expected_inconclusive": true,
+      "expected_text": "",
+      "file": "blank.png",
+      "font_size": 34,
+      "mime": "image/png",
+      "render_font": "Helvetica",
+      "sha256": "9cf94e9eb7ab2da69a996309626930375b2f31d6a853db3bac3831fb03e70b4c",
+      "bytes": 36835
+    },
+    {
+      "expected_inconclusive": true,
+      "expected_text": "ARQUIVO SINTÉTICO DE BAIXA RESOLUÇÃO\nConteúdo não utilizável para análise\nValor fictício: 918,26",
+      "file": "illegible.png",
+      "font_size": 0.5,
+      "mime": "image/png",
+      "render_font": "Helvetica",
+      "sha256": "235c9fc442ea19805caeab55fa92558da4b6422b3260004b50e4c50a41608e21",
+      "bytes": 38413
+    },
+    {
+      "expected_inconclusive": true,
+      "expected_text": "ANEXO SINTÉTICO PARCIAL\nPrimeira página contém esta nota.\nSegunda página não contém texto.\nA cobertura deve ser conferida.",
+      "file": "partial.pdf",
+      "font_size": 34,
+      "mime": "application/pdf",
+      "render_font": "Helvetica",
+      "sha256": "6be5a2e7bd85563d4ff0f2bb673037b9c85162ba1361ad2b04db6004653dc267",
+      "bytes": 80243
+    }
+  ]
+}
