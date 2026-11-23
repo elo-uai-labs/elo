@@ -4,6 +4,7 @@ import ipaddress
 import json
 import re
 import sqlite3
+from threading import Lock
 from contextlib import closing
 from datetime import datetime, timezone
 
@@ -96,6 +97,7 @@ def verify_package(package):
 class AccessAudit:
     def __init__(self, path):
         self.path = path
+        self._append_lock = Lock()
         with closing(sqlite3.connect(path, timeout=5)) as db, db:
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS access_audit(seq INTEGER PRIMARY KEY, event TEXT NOT NULL, hash TEXT NOT NULL);
@@ -106,7 +108,9 @@ class AccessAudit:
             ''')
 
     def append(self, *, actor, mode, event, target, outcome, ip):
-        with closing(sqlite3.connect(self.path, timeout=5)) as db, db:
+        # SQLite still arbitrates other instances/processes. Avoid competing busy
+        # handlers among this server's threads; never skip chain verification.
+        with self._append_lock, closing(sqlite3.connect(self.path, timeout=5)) as db, db:
             db.execute('BEGIN IMMEDIATE')
             events = checked_events(db)
             row = {'seq': len(events) + 1, 'timestamp': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),

@@ -41,6 +41,16 @@ class AccessAuditTest(unittest.TestCase):
         self.assertEqual(sorted(row['seq'] for row in results), list(range(1, 21)))
         self.assertTrue(verify_package(self.ledger.export()))
 
+    def test_append_lock_releases_after_failure_and_multiple_instances_coexist(self):
+        with self.assertRaises(ValueError):
+            self.ledger.append(**{**self.event, 'event': 'invalid'})
+        other = AccessAudit(self.path)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit((self.ledger if i % 2 else other).append, **self.event) for i in range(40)]
+            results = [future.result(timeout=10) for future in futures]
+        self.assertEqual(sorted(row['seq'] for row in results), list(range(1, 41)))
+        self.assertTrue(verify_package(other.export()))
+
     def test_invalid_inputs_do_not_persist(self):
         for changes in ({'target': '/api/state?token=secret'}, {'target': '/api/state\n'}, {'actor': 'untrusted login text'},
                         {'mode': 'corporate-auth'}, {'ip': 'not-an-ip'}, {'outcome': 'unknown'}, {'event': 'password'}):
