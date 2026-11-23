@@ -1,0 +1,10 @@
+{
+  "version": "elo-independent-ai-freeze-v1",
+  "fixture_sha256": "39a4ce3cd3b67f38c49e5a493ad233eff8f6bf1223b0401b6164e7ad03691d6f",
+  "author": "/root/ia_independente",
+  "created_before_calls": true,
+  "planned_calls": 18,
+  "prior_runtime_commit": "fb1c1afa9cb09a80b8d7b524378bcac354516389",
+  "source": "Independently authored synthetic cases, not external real-world sample",
+  "policy": "First pass only; no retries or runtime/prompt edits by sample author; all failures retained; separate reviewer required."
+}
