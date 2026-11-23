@@ -261,7 +261,7 @@ function memoryPanel() {
   const memory = insights?.memory;
   return panel('Memória institucional', `${insightFeedback()}${memory ? `<p-text size="sm" color="contrast-high">${escape(memory.methodology)}</p-text>
     ${memory.matches.length ? `<p-text-list class="record-list" data-testid="similar-cases">${memory.matches.map((item) => `<p-text-list-item><div class="entry-content">
-      <p-link-pure icon="none" href="?case_id=${encodeURIComponent(item.case_id)}#inteligencia">Abrir ${escape(item.case_id)}</p-link-pure>
+      <p-link-pure href="?case_id=${encodeURIComponent(item.case_id)}#inteligencia">Abrir ${escape(item.case_id)}</p-link-pure>
       <p-text size="sm">Pontuação de correspondência: ${escape(item.score)} · ${item.reasons.map(escape).join(' · ')}</p-text>
       <p-text weight="semibold">Decisão anterior: ${decisionOutcome(item.decision.outcome)} · ${escape(item.decision.actor)}</p-text><p-text>${escape(item.decision.reason)}</p-text>
     </div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Nenhum outro caso revisado compartilha os critérios de correspondência.</p-text>'}` : '<p-text size="sm">Selecione um caso para consultar decisões anteriores relacionadas.</p-text>'}`);
@@ -326,7 +326,7 @@ function overview() {
     <p-text class="metric-value" size="xl" weight="semibold">${format(value)}</p-text>
   </div>`).join('');
   const journey = stages.map(([route, title, status]) => `<p-text-list-item><div class="journey-step">
-    <p-link-pure icon="none" href="#${route}">${title}</p-link-pure>
+    <p-link-pure href="#${route}">${title}</p-link-pure>
     <p-tag variant="${['Pendente', 'Não se aplica'].includes(status) ? 'secondary' : 'success'}">${status}</p-tag>
   </div></p-text-list-item>`).join('');
   return `${heading('Visão geral', 'Acompanhe indícios, riscos e decisões em uma trilha única.')}
@@ -629,7 +629,7 @@ function impactCard(item) {
   const { kind, label, status, actor, reason } = item;
   const prefix = `impact-${escape(kind)}`;
   const grounding = `<div class="entry-header">
-    <p-link-pure icon="none" href="#inteligencia">Caso ${escape(item.case_id)}</p-link-pure>
+    <p-link-pure href="#inteligencia">Caso ${escape(item.case_id)}</p-link-pure>
     <p-text size="sm" color="contrast-high">Evidências ${item.source_ids.map(escape).join(', ')}</p-text>
   </div>
   <p-text size="lg" weight="semibold">${escape(item.current_level)} → ${escape(item.proposed_level)}</p-text>
@@ -717,7 +717,7 @@ function documentAnalysisPanel() {
       ${analysis.extraction_status === 'inconclusive' ? '<p-inline-notification state="warning" heading="Extração inconclusiva" description="Confira o original. Este resultado não pode ser aceito como fonte; OCR não está disponível." dismiss-button="false"></p-inline-notification>' : ''}
       ${analysis.segments?.length ? `<p-accordion><p-heading slot="summary" tag="h5" size="sm">Localizar trechos no original</p-heading><p-text-list>${analysis.segments.map((segment) => `<p-text-list-item><p-text weight="semibold">${escape(segment.location)}</p-text><p-text class="technical document-text" size="sm">${escape(segment.text)}</p-text></p-text-list-item>`).join('')}</p-text-list></p-accordion>` : ''}
       <p-text size="sm">Identificadores reconhecidos: ${analysis.record_ids.map(escape).join(', ') || 'Nenhum'}.</p-text><p-text size="sm">Identificadores sem correspondência: ${analysis.unknown_ids.map(escape).join(', ') || 'Nenhum'}.</p-text>
-      <p-link-pure icon="none" href="/api/evidence/${encodeURIComponent(analysis.attachment_id)}" download>Baixar documento original · ${escape(analysis.attachment_id)}</p-link-pure>
+      <p-link-pure href="/api/evidence/${encodeURIComponent(analysis.attachment_id)}" download>Baixar documento original · ${escape(analysis.attachment_id)}</p-link-pure>
       ${analysis.review ? `<p-accordion><p-heading slot="summary" tag="h5" size="sm">Ler texto extraído · ${escape(analysis.id)}</p-heading><p-text class="technical document-text" size="sm" data-testid="document-text">${escape(analysis.text)}</p-text></p-accordion>` : `<section class="entry-content"><p-heading tag="h5" size="sm">Ler texto extraído · ${escape(analysis.id)}</p-heading><p-text class="technical document-text" size="sm" data-testid="document-text">${escape(analysis.text)}</p-text></section>`}
       ${analysis.review ? `<p-text size="sm">Revisão: ${escape(analysis.review.actor)} · ${escape(analysis.review.reason)}</p-text>` : `<form class="form" data-endpoint="evidence/review" data-testid="document-review-${escape(analysis.id)}">${hidden('analysis_id', analysis.id)}${hidden('revision', analysis.revision)}
         ${selectField(`document-outcome-${analysis.id}`, 'outcome', 'Decisão sobre o texto extraído', [...(analysis.extraction_status === 'inconclusive' ? [] : [['accepted', 'Aceitar texto como fonte']]), ['rejected', 'Rejeitar texto']])}
@@ -893,7 +893,7 @@ function workPanel() {
       <div class="entry-header"><p-heading tag="h3" size="md">${escape(item.title)} · ${escape(item.id)}</p-heading><p-tag class="work-status" variant="${item.status === 'completed' ? 'success' : 'secondary'}">${escape(workStatuses[item.status])}</p-tag></div>
       <p-text>${escape(item.description)}</p-text><p-text size="sm">Responsável: ${escape(item.owner)} · Prazo: ${escape(item.due)} · Prioridade ${escape(workPriorities[item.priority])}</p-text>
       <p-text size="sm">Justificativa da prioridade: ${escape(item.priority_reason)}</p-text>
-      ${item.case_ids.length ? `<p-text-list>${item.case_ids.map((id) => `<p-text-list-item><p-link-pure icon="none" href="?case_id=${encodeURIComponent(id)}#inteligencia">Consultar ${escape(id)}</p-link-pure></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Trabalho sem caso vinculado.</p-text>'}
+      ${item.case_ids.length ? `<p-text-list>${item.case_ids.map((id) => `<p-text-list-item><p-link-pure href="?case_id=${encodeURIComponent(id)}#inteligencia">Consultar ${escape(id)}</p-link-pure></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Trabalho sem caso vinculado.</p-text>'}
       ${item.result ? `<p-text weight="semibold">Resultado: ${escape(item.result)}</p-text>` : ''}${item.cancellation_reason ? `<p-text>Motivo do cancelamento: ${escape(item.cancellation_reason)}</p-text>` : ''}
       <p-text size="xs" color="contrast-high">Criado em ${escape(item.created_at)} · Atualizado em ${escape(item.updated_at)}</p-text>
       ${['planned', 'in_progress'].includes(item.status) ? `<p-accordion><p-heading slot="summary" tag="h4" size="sm">Editar planejamento · ${escape(item.id)}</p-heading>${workForm(item)}</p-accordion>
