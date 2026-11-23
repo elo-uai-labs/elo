@@ -1,0 +1,69 @@
+{
+  "version": "elo-trl-ocr-holdout-v1",
+  "scope": "Generated synthetic multi-line, aligned table, diacritics, compressed JPEG, raster two-page PDF, blank and deliberately unreadable controls. Not field scans or a representative CAIXA corpus.",
+  "criteria_before_execution": {
+    "legible_cer_max": 0.05,
+    "triage_match_rate": 1,
+    "blank_false_characters": 0,
+    "normalization": "NFC and whitespace collapse, case and accents retained",
+    "review": "Correct text can still be inconclusive under conservative engine gate; record failures, do not tune threshold."
+  },
+  "cases": [
+    {
+      "file": "degraded.png",
+      "sha256": "d89490b6c662573629a333901a2994fc263842493527b4acf23223d99235401e",
+      "bytes": 32212,
+      "mime": "image/png",
+      "expected_text": "RELATORIO SINTETICO DE CONFERENCIA\nDocumento de teste sem validade comercial\nContrato CTR-701 - Fornecedor FOR-701\nEmissao: 14/06/2027\nValor registrado: R$ 845,60\nSituacao: revisao humana pendente\nNenhum pagamento comprovado neste documento",
+      "expected_inconclusive": true
+    },
+    {
+      "file": "table.png",
+      "sha256": "69d67b195a43d0d9fdd53a8581d469c22675a31d5229fa14dc87fe590d085a8f",
+      "bytes": 76005,
+      "mime": "image/png",
+      "expected_text": "QUADRO SINTETICO DE PARCELAS\nItem        Quantidade        Valor\nServico A   2                 120,00\nServico B   3                 210,00\nTotal registrado              330,00\nValores ficticios para conferencia",
+      "expected_inconclusive": false
+    },
+    {
+      "file": "accents.png",
+      "sha256": "55cea3e8f73afa447c24a3842585143a4a00f6bd144478ec0503fcc5420dbf12",
+      "bytes": 76411,
+      "mime": "image/png",
+      "expected_text": "AVALIAÇÃO SINTÉTICA\nRevisão de evidências e atribuições\nSituação: documentação incompleta\nResponsável fictício: João de Sá\nA conclusão exige análise humana",
+      "expected_inconclusive": false
+    },
+    {
+      "file": "compressed.jpg",
+      "sha256": "d9000aacf7aff22414e9d26f36f5040bdc5d797e7117b490741f89f3a73bc204",
+      "bytes": 59651,
+      "mime": "image/jpeg",
+      "expected_text": "RELATORIO SINTETICO DE CONFERENCIA\nDocumento de teste sem validade comercial\nContrato CTR-701 - Fornecedor FOR-701\nEmissao: 14/06/2027\nValor registrado: R$ 845,60\nSituacao: revisao humana pendente\nNenhum pagamento comprovado neste documento",
+      "expected_inconclusive": false
+    },
+    {
+      "file": "blank.png",
+      "sha256": "b9d401f46c8c09f231dae27df7d16f2a1c2719f7730e6ee2ce8ef0779f8918b1",
+      "bytes": 30238,
+      "mime": "image/png",
+      "expected_text": "",
+      "expected_inconclusive": true
+    },
+    {
+      "file": "letter.png",
+      "sha256": "a47cde6e127da44dae499169b148bb1f9b9ad8e0eb4d3933261bb1eda4e6fb27",
+      "bytes": 94842,
+      "mime": "image/png",
+      "expected_text": "RELATORIO SINTETICO DE CONFERENCIA\nDocumento de teste sem validade comercial\nContrato CTR-701 - Fornecedor FOR-701\nEmissao: 14/06/2027\nValor registrado: R$ 845,60\nSituacao: revisao humana pendente\nNenhum pagamento comprovado neste documento",
+      "expected_inconclusive": false
+    },
+    {
+      "file": "two-pages.pdf",
+      "sha256": "39d362023d9870ad54141bac3f47253553bf4ebe942f645cbe856f77cc6d0ab1",
+      "bytes": 135954,
+      "mime": "application/pdf",
+      "expected_text": "RELATORIO SINTETICO DE CONFERENCIA\nDocumento de teste sem validade comercial\nContrato CTR-701 - Fornecedor FOR-701\nEmissao: 14/06/2027\nValor registrado: R$ 845,60\nSituacao: revisao humana pendente\nNenhum pagamento comprovado neste documento\nQUADRO SINTETICO DE PARCELAS\nItem        Quantidade        Valor\nServico A   2                 120,00\nServico B   3                 210,00\nTotal registrado              330,00\nValores ficticios para conferencia",
+      "expected_inconclusive": false
+    }
+  ]
+}
