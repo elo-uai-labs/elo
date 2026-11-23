@@ -25,7 +25,7 @@ A equipe de experimentação propõe escopo e instrumentos; a CAIXA define com a
 | C11 | Consulta e contexto obsoleto | Fontes do caso e abstenção quando insuficientes; nenhuma decisão automática; mudança relevante durante geração impede arquivar contexto como atual |
 | C12 | Recuperação e integridade | Backup para caminho novo, restauração equivalente de negócio/anexos/consultas/relatórios/acessos; corrupção impede publicação; origem intacta |
 
-C02, C09 e C10 têm backend implementado e testado localmente; dependem do aceite da jornada de interface. Executar somente funcionalidades existentes; registrar “não executado” para lacunas, nunca atribuir resultado de aceite a um roteiro.
+C02, C09 e C10 têm jornadas locais aprovadas, incluindo desktop/celular; C10 inclui TXT, PDF digital, CSV/XLSX e OCR experimental revisado. Isso não substitui o ensaio com participantes. Executar somente funcionalidades existentes; registrar “não executado” para lacunas, nunca atribuir resultado de aceite a um roteiro.
 
 ## Baseline e métricas
 
@@ -49,3 +49,7 @@ Para cada tarefa elegível, documentar primeiro o processo de referência (plani
 Executar build/testes canônicos e E2E real configurado antes do ensaio. Registrar falhas e repetir os casos afetados após correção; manter evidências anteriores. O relatório do ensaio reúne ficha, baseline, resultados, limitações, custo calculado e pendências. A passagem de fase exige decisão do responsável, não conclusão do modelo.
 
 Interromper um caso ao detectar corrupção, vazamento de dados ou autorização indevida, preservar evidências em local restrito e registrar incidente/defeito. Não enviar automaticamente mensagens a terceiros nem executar descarte. Canais, responsáveis e SLA corporativos precisam ser acordados. Backup local não substitui continuidade multizona nem política corporativa de retenção.
+
+## Instrumento de coleta disponível
+
+Use o [instrumento de benefício](benefit-measurement.md) e o [CSV vazio](benefit-template.csv) para registrar pares baseline/Elo. O agregador valida comparabilidade e separa simulações de registros de participantes. Não há resultados humanos preenchidos automaticamente.
