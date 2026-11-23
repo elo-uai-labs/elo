@@ -41,3 +41,11 @@ Revisão estática independente de `64de64f1b64d09420d168c22e27b0d1f21aa50d5`, s
 Conferidos os dois testes novos: escritor separado conclui durante projeção, mutação no resultado não afeta leitura posterior, projeção padrão não modifica a entrada e contagens equivalem às anteriores. Não foram repetidos testes pesados durante a carga em andamento. A revisão DBA independente `c231833` executou os dois testes e prova adicional de escrita de negócio durante projeção; aceites canônicos e de performance seguem com o orquestrador.
 
 Hashes: `backend/domain.py` = `f943739f52d1ae05fb67daf6cf594f29c7269ed298af8958409d1dd9c6620214`; `backend/tests/test_read_projection.py` = `39fe1d3e0e4c10981fdb3a8df564b1370cd668ef49f7c1651fdefea5293281fd`.
+
+## Delta de coordenação de appends · e72d5be
+
+Revisão estática independente de `e72d5be81fc61dcc5092d21b674c8d72a3ba72ee`, sobre HEAD documental `dfc306c`: **sem achado bloqueador de correção no delta**. O lock é por instância de `AccessAudit`, envolve toda a transação e é liberado após fechamento/rollback inclusive em exceções. Não há recursão ou aquisição de lock de negócio no bloco. `BEGIN IMMEDIATE` continua arbitrando outras instâncias/processos; a verificação integral da cadeia não foi removida nem transformada em cache. Exportação permanece uma leitura transacional separada. Formato dos eventos, hashes e schema não mudaram.
+
+O teste novo exercita liberação após falha de validação e 40 appends concorrentes em duas instâncias, conferindo sequência e cadeia. Execução foi feita pelo revisor DBA, registrada em `dfc306c`; esta conferência geral não repetiu carga durante o ensaio especializado. O lock Python não introduz limite de fila nem garantia de latência: o resultado final de capacidade precisa ser registrado separadamente, inclusive se a meta falhar.
+
+Hashes: `backend/access_audit.py` = `581f9c825ef6753d73bf4e705e1bbc3909feb10845bbed094de1a89d969070fc`; `backend/tests/test_access_audit.py` = `d55f71726c53ecf7810d2930ef22de845c74e32adeb9d260a495cc3dcc6bd891`.
