@@ -6,7 +6,7 @@ Minuta para apresentação com dados fictícios. Duração prevista de leitura: 
 
 O Elo organiza esse ciclo em uma aplicação funcional. A demonstração usa dados sintéticos: importamos cadastros e contratos por CSV ou planilha, conferimos o mapeamento e os erros antes de gravar. Uma base pode produzir um sinal; outra pode não produzir nenhum. Ambos os resultados são válidos e rastreáveis.
 
-As regras determinísticas locais identificam coincidências cadastrais. Uma terceira tipologia experimental compara perfis contratuais repetidos, sem concluir duplicidade financeira; seu aceite integrado está em validação nesta rodada. Quando sinais apontam para o mesmo contrato, aparecem juntos, com decisões preservadas. A coincidência é um convite à verificação, não uma conclusão de irregularidade.
+As regras determinísticas locais identificam coincidências cadastrais. Uma terceira tipologia experimental compara perfis contratuais repetidos, sem concluir duplicidade financeira; seu fluxo integrado foi aprovado localmente nesta rodada. Quando sinais apontam para o mesmo contrato, aparecem juntos, com decisões preservadas. A coincidência é um convite à verificação, não uma conclusão de irregularidade.
 
 A IA ajuda a sintetizar as fontes. O Elo está integrado à OpenAI, com GPT-6.2 Sol validado em uma jornada sintética. Cada afirmação apresenta suas referências, e a pessoa pode discordar com justificativa. A IA não aprova impactos, não penaliza pessoas e não encerra planos. Quando faltam evidências, a resposta deve explicitar a limitação ou se abster.
 

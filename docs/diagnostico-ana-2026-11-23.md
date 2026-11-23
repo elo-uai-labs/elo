@@ -4,6 +4,8 @@ Fonte: `Diagnostico_Elo_CAIXA_2026-11-23.md`, recebido em Downloads. O documento
 
 Atualização posterior: o [OCR local de imagens e PDFs digitalizados](ocr.md) foi implementado nesta sequência, com avaliação sintética, localização e revisão humana específica. A homologação em documentos autorizados continua pendente.
 
+Atualização da execução paralela: [operação local de equipes](operacao-equipes.md), [avaliação IA/OCR](avaliacao-ia-ocr.md), [terceira tipologia experimental](tipologia-perfil-repetido.md) e guardas locais concluídos e validados. Os modelos dos Anexos II/II-A foram localizados no pacote já disponível em Downloads; cópias técnicas de trabalho estão no [pacote atualizado](pacote-ana/README.md). A vigência oficial, preços e campos institucionais continuam pendentes. O restante deste registro preserva a rodada inicial; o [registro de entrega](entrega.md) traz os resultados atuais.
+
 ## Escopo e critérios
 
 | Item | Entrega/critério | Estado |

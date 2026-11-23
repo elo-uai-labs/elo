@@ -13,7 +13,11 @@ BASE = ['README.md', 'docs/design-system.md', 'docs/entrega.md',
         'docs/pilot-onboarding.md', 'docs/cost-model.csv', 'docs/ocr.md',
         'docs/access.md', 'docs/operations.md', 'docs/monitoring.md',
         'docs/security-readiness.md', 'docs/edital-execution.md', 'docs/product-vision.md']
-OPTIONAL = ['docs/avaliacao-ia-ocr.md', 'docs/operacao-equipes.md',
+OPTIONAL = ['docs/reviews/general-parallel.md', 'docs/reviews/security-parallel.md',
+            'docs/reviews/dba-parallel.md', 'docs/reviews/performance-parallel.md',
+            'output/validation/result-local.json', 'output/validation/repeated.json',
+            'output/validation/repeated-real.json', 'output/validation/performance-parallel.json',
+            'output/validation/dba-parallel.json', 'output/validation/parallel-acceptance.json', 'output/pacote-ana/anexos-validacao.json','docs/avaliacao-ia-ocr.md', 'docs/operacao-equipes.md',
             'docs/tipologia-perfil-repetido.md', 'docs/runtime-local.md',
             'output/validation/result-real.json', 'output/validation/result-auth.json',
             'output/validation/openai-assistant-real.json',
@@ -36,6 +40,8 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     names = BASE + [str(p.relative_to(ROOT)) for p in sorted((ROOT/'docs/pacote-ana').glob('*')) if p.is_file()]
     names += [str(p.relative_to(ROOT)) for p in sorted((ROOT/'docs/demo').glob('*')) if p.is_file()]
+    for sub in ('modelos-originais', 'anexos-trabalho'):
+        names += [str(p.relative_to(ROOT)) for p in sorted((OUT/sub).glob('*.xlsx')) if p.is_file()]
     names += [name for name in OPTIONAL if (ROOT/name).is_file()]
     files = {}
     for name in sorted(set(names)):

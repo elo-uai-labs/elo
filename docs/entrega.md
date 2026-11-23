@@ -14,7 +14,7 @@ Log canônico preservado em `output/validation/parallel-canonical.log`; resultad
 
 ## Materiais e dependências
 
-[Pacote de revisão](pacote-ana/README.md), [operação de equipes](operacao-equipes.md), [avaliação IA/OCR](avaliacao-ia-ocr.md), [tipologia](tipologia-perfil-repetido.md) e [guardas locais](runtime-local.md). O pacote registra versões/hashes e distingue material preparatório de homologação. Custos/equipe/prazos comerciais não foram inventados. A eventual vigência de documentos oficiais e prazo do certame deve ser confirmada nas fontes oficiais antes da candidatura.
+[Pacote de revisão](pacote-ana/README.md), [operação de equipes](operacao-equipes.md), [avaliação IA/OCR](avaliacao-ia-ocr.md), [tipologia](tipologia-perfil-repetido.md) e [guardas locais](runtime-local.md). O pacote registra versões/hashes e distingue material preparatório de homologação. Custos/equipe/prazos comerciais não foram inventados. A eventual vigência de documentos oficiais e prazo do certame deve ser confirmada nas fontes oficiais antes da candidatura. Os Anexos II/II-A foram encontrados no ZIP local existente; cópias técnicas preenchidas e originais preservados integram o pacote. Campos empresariais/comerciais desconhecidos estão A DEFINIR. Foram preservadas 89 fórmulas e conferidos os caches; recálculo completo/visual no Excel e uma fórmula matricial autorreferente já existente no II-A permanecem pendentes. As cópias são rascunhos não prontos para submissão; veja a [proveniência e limitações](pacote-ana/fontes-oficiais.md).
 
 ---
 

@@ -1,6 +1,6 @@
 # Preparação da candidatura e do orçamento
 
-Minuta para revisão. O usuário informou que ainda não tem valores comerciais nem modelos dos Anexos II/II-A. Este pacote não substitui esses formulários, não verifica o prazo atual e não constitui proposta assinada. A fonte do escopo é o diagnóstico recebido, não a reprodução integral do edital vigente.
+Minuta para revisão. Os modelos dos Anexos II/II-A foram localizados no ZIP disponível em Downloads; cópias de trabalho têm campos técnicos factuais e pendências explícitas. Ver `fontes-oficiais.md`. Valores comerciais, vigência dos modelos e prazo atual seguem não confirmados. O material não constitui proposta assinada. A fonte do escopo é o diagnóstico recebido, não a reprodução integral do edital vigente.
 
 ## Mapa de conteúdo para os anexos
 
@@ -31,7 +31,7 @@ Para cada fase P0–P4, preencher início, fim, dependência, responsável, hora
 
 ## Checklist antes de protocolar
 
-- Obter modelos oficiais vigentes dos anexos, versão integral das regras aplicáveis e publicação oficial do prazo; registrar URLs/documentos/data de consulta.
+- Confirmar a vigência dos modelos localizados, versão integral das regras aplicáveis e publicação oficial do prazo; registrar URLs/documentos/data de consulta.
 - Mapear todos os campos obrigatórios, assinaturas, limites e comprovantes aos arquivos finais; conferir os originais, não apenas texto extraído.
 - Atualizar pitch/vídeo para a versão apresentada e confirmar direitos dos ativos/licenças e uso da identidade visual.
 - Conferir preço, cronograma, equipe, disponibilidade, termos e escopo com os responsáveis; distinguir proposta de custo interno.

@@ -53,7 +53,7 @@ Depois de configurar a chave, a validação real pode ser executada explicitamen
 ## Jornada disponível
 
 1. **Visão geral:** indicadores calculados, trabalhos da 2ª Linha com prioridade justificada, responsáveis, prazos e acompanhamento independente dos casos.
-2. **Inteligência:** configurar e executar duas regras sintéticas, medir ambas no laboratório, consultar fontes/anexos, revisar textos TXT, PDF digital e planilhas, gerar dossiês, decidir e consultar o assistente.
+2. **Inteligência:** configurar e executar três regras sintéticas (uma experimental), medi-las no laboratório, consultar fontes/anexos, revisar textos TXT, PDF digital e planilhas, gerar dossiês, decidir e consultar o assistente.
 3. **Risco e maturidade:** gerenciar riscos, controles, avaliações e lacunas; aprovar impactos separadamente e simular cenários sem alterar o risco vigente.
 4. **Plano e auditoria:** atribuir planos, anexar execução, solicitar encerramento para revisão independente, revisar relatórios citados e exportar auditoria com arquivos.
 
@@ -113,7 +113,7 @@ O laboratório sintético tem gabarito independente e versionado. Execute pela C
 
 ## Análises, assistência e operação
 
-A Central de inteligência apresenta relações entre registros, tendências mensais e até cinco casos decididos semelhantes, com critérios explícitos. Duas regras determinísticas tratam coincidência cadastral entre fornecedor/aprovador e contato compartilhado entre fornecedores distintos. Os sinais não comprovam irregularidade. O laboratório possui gabaritos manuais independentes para ambas as regras. Configurações versionadas permitem ativação, comprimento mínimo do código, exclusões e filtro do título; sinais anteriores preservam a configuração aplicada.
+A Central de inteligência apresenta relações entre registros, tendências mensais e até cinco casos decididos semelhantes, com critérios explícitos. As regras determinísticas tratam coincidência cadastral entre fornecedor/aprovador, contato compartilhado entre fornecedores distintos e, experimentalmente, perfil contratual repetido. Os sinais não comprovam irregularidade. O laboratório possui gabaritos manuais independentes para as três regras. Configurações versionadas permitem ativação e filtro do título; as duas regras de contato também aplicam comprimento mínimo do código e exclusões. Sinais anteriores preservam a configuração aplicada.
 
 O assistente responde perguntas sobre o **caso selecionado**, registra pergunta/resposta/fontes e pode se abster. O modo local é uma busca textual determinística; IA real usa o provedor configurado e o contrato `elo-assistant-v1`. O contexto é limitado e pode ser parcial; não inclui bytes binários nem outros casos. Pode incluir até três textos de documentos aceitos por revisão humana, com trechos de até 700 caracteres e indicação de contexto parcial. Citações verificam referência, não comprovam por si só a sustentação semântica. Nenhuma resposta executa decisões ou altera riscos. Consultas são auditadas e acessíveis aos perfis autenticados deste ambiente.
 
