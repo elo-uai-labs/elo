@@ -20,3 +20,11 @@ O CLI lê pacote exportado já verificado e tarifas explícitas; não abre banco
 - Relatório dos três registros de IA (um legado, dois novos) mostrou 60 tokens informados, dois registros medidos e um não medido. Não foram usados dados de fatura nem chamadas reais de IA.
 
 Evidência estruturada: `output/validation/dba-closure.json`, vinculada ao HEAD examinado. A capacidade com histórico crescente é responsabilidade do ensaio especializado separado; esta revisão não certifica escala corporativa nem contabilização financeira completa.
+
+## Delta de leitura e projeção · 64de64f
+
+**Aprovado:** revisão independente de `64de64f1b64d09420d168c22e27b0d1f21aa50d5`. `Store.read` conserva `BEGIN` durante todas as consultas do snapshot (estado, eventos e BLOBs); fecha a conexão antes da projeção puramente em memória. O snapshot está integralmente materializado por JSON/listas/bytes e não conserva cursor/lazy query. O parâmetro `copy_state=False` é usado somente nesse snapshot recém-criado e privado. Os outros caminhos, inclusive o retorno de `Store.apply`, mantêm a cópia defensiva padrão. Os sets de IDs são variáveis locais de projeção; não substituem listas persistidas nem alteram serialização/hashes.
+
+Dois testes `test_read_projection.py` passaram: escritor da trilha HTTP consegue concluir durante a projeção; mutação pelo chamador não altera persistência; projeção padrão preserva a entrada; contagens pendentes equivalem ao cálculo anterior. Prova adicional independente, temporária e sem carga prolongada, inseriu uma segunda detecção válida por outra conexão durante a projeção: commit concluído, resposta antiga permaneceu igual ao snapshot auditado anterior, estado posterior ganhou exatamente um evento e ambas as cadeias permaneceram válidas. Uma primeira tentativa da sonda repetiu a mesma regra e foi corretamente recusada 409 pela regra de negócio; a sonda válida usou a segunda tipologia. Isso não foi falha do delta.
+
+Hashes examinados: `backend/domain.py` SHA-256 `f943739f52d1ae05fb67daf6cf594f29c7269ed298af8958409d1dd9c6620214`; `backend/tests/test_read_projection.py` SHA-256 `39fe1d3e0e4c10981fdb3a8df564b1370cd668ef49f7c1651fdefea5293281fd`. Sem alteração de schema, escrita de leitura ou exposição do banco manual. Testes de capacidade prolongada ficam no relatório especializado separado.
