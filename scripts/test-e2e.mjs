@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { once } from 'node:events';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -46,6 +47,12 @@ try {
   await run(['node_modules/vite/bin/vite.js', 'build']);
   await start();
   await run(['tests/browser.cjs']);
+  const auditResponse = await fetch(`${url}/api/audit/export`);
+  assert.ok(auditResponse.ok, 'Exportação final com documentos e importações');
+  const auditPath = path.join(temporary, 'diagnostic-audit.json');
+  await writeFile(auditPath, await auditResponse.text());
+  execFileSync(env.PYTHON || (existsSync(path.join(root, '.venv/bin/python3')) ? path.join(root, '.venv/bin/python3') : 'python3'),
+    ['backend/audit_export.py', auditPath], {cwd: root, env, stdio: 'inherit'});
   const before = await (await fetch(`${url}/api/state`)).json();
   await stop();
   await start();

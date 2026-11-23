@@ -11,7 +11,8 @@ MAX_FILE_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 20 * 1024 * 1024
 MAX_FILES = 200
 TYPES = {'text/plain': ('.txt',), 'application/pdf': ('.pdf',),
-         'image/png': ('.png',), 'image/jpeg': ('.jpg', '.jpeg')}
+         'image/png': ('.png',), 'image/jpeg': ('.jpg', '.jpeg'), 'text/csv': ('.csv',),
+         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ('.xlsx',)}
 
 
 def validate_upload(data):
@@ -19,11 +20,11 @@ def validate_upload(data):
     if data.get("synthetic") is not True:
         raise WorkflowError("Confirme que o arquivo contém exclusivamente dados sintéticos.")
     name = required(data, 'name', 120)
-    media_type = required(data, 'media_type', 32)
+    media_type = required(data, 'media_type', 100)
     if '/' in name or '\\' in name or any(ord(character) < 32 or ord(character) == 127 for character in name):
         raise WorkflowError('O nome do arquivo não pode conter caminhos ou caracteres de controle.')
     if media_type not in TYPES or PurePath(name).suffix.lower() not in TYPES[media_type]:
-        raise WorkflowError('Use arquivos TXT, PDF, PNG ou JPEG com extensão correspondente ao tipo informado.')
+        raise WorkflowError('Use arquivos TXT, CSV, XLSX, PDF, PNG ou JPEG com extensão correspondente ao tipo informado.')
     encoded = data.get('content_base64')
     if not isinstance(encoded, str) or len(encoded) > ((MAX_FILE_BYTES + 2) // 3) * 4:
         raise WorkflowError('Cada arquivo aceita no máximo 1 MiB.', 413)
@@ -33,7 +34,7 @@ def validate_upload(data):
         raise WorkflowError('O conteúdo do arquivo não é um Base64 válido.') from error
     if not 0 < len(content) <= MAX_FILE_BYTES:
         raise WorkflowError('O arquivo precisa ter entre 1 byte e 1 MiB.', 413)
-    if media_type == 'text/plain':
+    if media_type in ('text/plain', 'text/csv'):
         try:
             text = content.decode('utf-8-sig')
         except UnicodeDecodeError as error:
@@ -46,6 +47,9 @@ def validate_upload(data):
     elif media_type == 'image/png':
         if len(content) < 33 or not content.startswith(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'):
             raise WorkflowError('O conteúdo não corresponde à assinatura esperada de um PNG.')
+    elif media_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+        from document_analysis import _sheet_segments
+        _sheet_segments(content, media_type)  # Validate bounded archive before persistence.
     elif not content.startswith(b'\xff\xd8\xff') or not content.endswith(b'\xff\xd9'):
         raise WorkflowError('O conteúdo não corresponde à assinatura esperada de um JPEG.')
     case_id = required(data, 'case_id', 64)

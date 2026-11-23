@@ -1,0 +1,2 @@
+# Optional PDF digital extraction; TXT/CSV/XLSX use the standard library.
+pypdf==7.1.1

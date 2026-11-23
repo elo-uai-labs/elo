@@ -25,7 +25,7 @@ from domain import Store, WorkflowError, choice, require, required
 
 ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "elo_session"
-COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", "assistant/query", "evidence/analyze", "evidence/review", "rule/config", *governance.COMMANDS, *reporting.COMMANDS, *work.COMMANDS}
+COMMANDS = {"import", "import/preview", "import/file", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", "assistant/query", "evidence/analyze", "evidence/review", "rule/config", *governance.COMMANDS, *reporting.COMMANDS, *work.COMMANDS}
 
 
 class EloServer(ThreadingHTTPServer):
@@ -39,6 +39,7 @@ class EloServer(ThreadingHTTPServer):
         self.static_dir = Path(static_dir).resolve() if static_dir else None
         self.frontend_port = frontend_port
         self.dossier_lock = Lock()
+        self.document_lock = Lock()
         super().__init__(address, Handler)
 
     def summarize(self, mode, case_id=None, actor=None, authorize=None):
@@ -81,8 +82,12 @@ class EloServer(ThreadingHTTPServer):
             authorize(snapshot)
         require(len(snapshot.get("document_analyses", [])) < 200, "Limite local de 200 análises atingido.")
         metadata, content = self.store.evidence_file(required(data, "attachment_id", 32))
-        generated = document_analysis.extract(snapshot, metadata, content)
-        return self.store.apply("document/record", {"actor": actor, "case_id": metadata["case_id"], "analysis": generated}, authorize=authorize)
+        require(self.document_lock.acquire(blocking=False), "Já existe uma extração em andamento. Tente novamente após a conclusão.")
+        try:
+            generated = document_analysis.extract(snapshot, metadata, content)
+            return self.store.apply("document/record", {"actor": actor, "case_id": metadata["case_id"], "analysis": generated}, authorize=authorize)
+        finally:
+            self.document_lock.release()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -240,7 +245,7 @@ class Handler(BaseHTTPRequestHandler):
                 case_id = snapshot["case"]["id"] if snapshot["case"] else None
                 self.send_json(200, {"connections": insights.connections(snapshot, case_id) if case_id else None,
                     "memory": insights.similar_cases(snapshot, case_id) if case_id else None,
-                    "trends": insights.trends(snapshot), "scenarios": snapshot.get("scenarios", [])})
+                    "trends": insights.trends(snapshot), "correlation": insights.correlated_cases(snapshot, case_id), "scenarios": snapshot.get("scenarios", [])})
             except WorkflowError as error:
                 self.send_json(error.status, {"error": str(error)})
             except sqlite3.Error:
@@ -333,7 +338,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get_content_type() != "application/json":
                 raise WorkflowError("Use application/json.", 415)
             length = int(self.headers.get("Content-Length", "0"))
-            if length > (1500000 if command == "evidence/upload" else 524288 if command == "import" else 65536 if command in governance.COMMANDS | work.COMMANDS | {"rule/config"} else 8192):
+            if length > (1500000 if command == "evidence/upload" else 524288 if command in {"import", "import/preview", "import/file"} else 65536 if command in governance.COMMANDS | work.COMMANDS | {"rule/config"} else 8192):
                 raise WorkflowError("O pedido é grande demais.", 413)
             if length <= 0:
                 raise ValueError
@@ -354,8 +359,24 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if user:
                 data["actor"] = user["id"]
-            authorize = self.authorizer(command, data)
-            if command == "evidence/analyze":
+            authorize = self.authorizer("import" if command in {"import/preview", "import/file"} else command, data)
+            if command in {"import/preview", "import/file"}:
+                import tabular_import
+                snapshot = self.server.store.read()
+                if authorize:
+                    authorize(snapshot)
+                require(data.get("synthetic") is True, "Confirme que todos os dados são fictícios.")
+                try:
+                    preview = tabular_import.preview(data, snapshot["dataset"])
+                except tabular_import.ImportFormatError as error:
+                    raise WorkflowError(str(error), 422) from error
+                if command == "import/preview":
+                    self.send_json(200, preview)
+                    return
+                require(preview["ready"], "Corrija os erros e valide o mapeamento antes de importar.")
+                state = self.server.store.apply("import", {"actor": required(data, "actor", 80),
+                    "synthetic": True, "dataset": preview["dataset"]}, authorize=authorize)
+            elif command == "evidence/analyze":
                 state = self.server.analyze_document(data, authorize=authorize)
             elif command == "assistant/query":
                 state = self.server.consult(data, authorize=authorize)

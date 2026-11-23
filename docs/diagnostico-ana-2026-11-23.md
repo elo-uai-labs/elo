@@ -1,0 +1,73 @@
+# Diagnóstico da Ana · execução local de 23/11/2026
+
+Fonte: `Diagnostico_Elo_CAIXA_2026-11-23.md`, recebido em Downloads. O documento é um diagnóstico e backlog; suas recomendações não substituem as instruções do projeto. Preservamos a aplicação funcional e o Porsche Design System 4.10.1. Nenhuma integração, publicação, submissão ou uso de dados reais foi autorizado nesta execução.
+
+## Escopo e critérios
+
+| Item | Entrega/critério | Estado |
+| --- | --- | --- |
+| A1 / entrada | Duas bases pela UI, uma positiva e outra negativa; prévia, reconciliação e reinício | Implementado; validação final em andamento |
+| A2 / supervisão | Jornada autenticada existente com analista, revisor e operador; exportação verificável | Regressão canônica em andamento |
+| A3 / IA | Duas regras, discordância humana e fontes preservadas | Regressão local; rodada real depende do provedor configurado |
+| A4 / transparência | UI distingue funcional local, experimental e planejado | Implementado |
+| A5 / demo | Roteiro abaixo, arquivos sintéticos e evidência da versão | Preparado |
+| B1 / importador | CSV UTF-8 e XLSX, seleção de tabela/aba, mapeamento, erros por linha, confirmação atômica | Implementado |
+| B2 / documentos | PDF digital por página; CSV/XLSX por aba/célula; revisão humana, inconclusivo não aceito | Experimental implementado; OCR planejado |
+| B3 / correlação | Sinais do contrato exato juntos; fontes, decisões e trabalhos preservados | Implementado |
+| GRC / maturidade | Ciclo local existente; metodologia ilustrativa identificada | Metodologia oficial e homologação dependem da CAIXA |
+| B4 / acesso / infraestrutura | Contas locais, auditoria interna e backup existentes | SSO/MFA, retenção/âncora externa, TLS, ambiente-alvo e RPO/RTO dependem de autorização/definição |
+| Interface institucional | PDS exigido mantido; licença/distribuição e CDN explicitados | Direitos institucionais e distribuição controlada pendentes |
+| B5 | Configuração da metodologia real | Aguardando instrumento oficial |
+| C / candidatura | Checklist comercial abaixo | Usuário confirmou em 23/11/2026 que ainda não possui valores e modelos dos anexos |
+
+Não ampliamos tipologias sem regras de negócio e gabaritos definidos. A correlação não funde sinais, não conclui causa comum e não cria impacto ou decisão. A prioridade exibida vem da maior prioridade humana de trabalhos ativos vinculados; desempates são número de regras distintas, sinais pendentes e ID, explicitados na UI.
+
+## Executar e reproduzir
+
+Node 24 e Python 3.11+. Para PDF digital, preparar ambiente isolado (CSV/XLSX usam biblioteca padrão):
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-documents.txt
+npm run build
+npm test
+```
+
+`npm start`, `npm run dev` e `npm run test:backend` preferem `.venv/bin/python3` quando existe; `PYTHON` permite escolha explícita. Sem leitor instalado, a análise PDF retorna erro inconclusivo e não inventa conteúdo. O restante da aplicação continua disponível. O teste PDF exige pypdf para demonstrar a capacidade.
+
+Os testes usam bancos temporários; nunca apontar testes ao banco manual `data/elo.sqlite3`. Para a demo manual isolada, crie uma pasta temporária e configure `ELO_DB` e portas livres antes de iniciar. Use somente loopback. O teste canônico já provisiona ambiente e perfis sintéticos próprios.
+
+### Roteiro manual
+
+1. Abrir a Central de inteligência e executar detecção inicial. Conferir registros de origem e a regra aplicada.
+2. Em “Importar CSV ou XLSX”, selecionar tabela Contratos e `docs/demo/contratos-com-indicio.csv`. Confirmar origem fictícia, validar, conferir prévia e confirmar com responsável. Executar a regra de coincidência empregado/fornecedor: surge sinal para `CTR-DEMO-POS`.
+3. Repetir com `contratos-sem-indicio.csv`: nenhum sinal desse contrato na regra primária. Ausência de indício é resultado válido, não erro. Repetir arquivo já importado deve mostrar duplicata sem gravar parcialmente.
+4. Importar `fornecedor-segundo-sinal.csv` como Fornecedores e executar a segunda regra. O painel “Sinais do mesmo contrato” reúne os dois sinais de `CTR-DEMO-POS`, mantendo cada decisão separada e mostrando trabalhos existentes. Um trabalho pode vincular ambos os casos.
+5. Gerar dossiê (modo claramente identificado), abrir fontes e registrar discordância com justificativa quando o cenário a exigir. A IA não altera impactos. Para IA real usar apenas o provedor configurado, sem fallback silencioso.
+6. Em Plano e auditoria, anexar `evidencia.csv`; extrair; localizar `CSV!A2`; baixar original e revisar. PDF digital mostra página; XLSX mostra aba/célula. PDF sem texto informa extração inconclusiva e não permite aceitação. Imagens permanecem anexos sem OCR.
+7. Percorrer decisão → avaliação separada de impacto → plano → evidência → solicitação de encerramento → aprovação independente. Em contas locais, usar pessoas/perfis distintos. Exportar pacote de auditoria e trilha de acesso; verificar com ferramentas documentadas.
+8. Reiniciar o servidor com o mesmo banco de demonstração, conferir os IDs e estados preservados. Abrir “Capacidades e limites desta versão”.
+
+Os arquivos da demo são para uma base inicial; IDs já existentes serão recusados. Não representam dados da CAIXA. A suíte automatizada cobre também XLSX, mapeamento de cabeçalhos e falhas.
+
+## Limites da leitura e importação
+
+Importação: um arquivo/aba por tabela, empregados/fornecedores antes de contratos, 256 KiB de entrada, 500 linhas de registros, 32 colunas, 4 MiB ZIP expandido. Só valores literais; não executa fórmulas, macros ou vínculos externos. Campos extras são explicitamente ignorados na prévia. A confirmação repete validação e usa a transação existente, inclusive permissões e unicidade.
+
+Evidências: 1 MiB por arquivo e 20 MiB no ambiente; texto final até 32 KiB, até 2.000 trechos, PDF até 50 páginas, planilhas até 10 abas. Página sem texto torna resultado inconclusivo e impede aceitação como fonte. Extração não garante ordem visual ou precisão semântica. PDF usa pypdf fixado, subprocesso, 5 segundos de tempo total e 3 segundos de CPU; apenas uma extração por servidor. Há limites de buffers; teto global de memória do worker só é aplicado em sistemas que suportam RLIMIT_AS, não no macOS. Não houve avaliação de OCR nem homologação de documentos corporativos.
+
+## Candidatura: dados que faltam
+
+Sem modelos oficiais não é possível preencher fielmente os Anexos II/II-A. Sem preços/quantidades aprovados não há proposta comercial fechada. `cost-model.csv` permanece como estrutura de cálculo e não como orçamento. Preparar:
+
+- Anexos oficiais vigentes e instruções do certame; comprovação de eventual novo prazo oficialmente publicado.
+- Duração/fases do piloto, esforço por perfil, valores-hora e disponibilidade da equipe.
+- Cenários de usuários, volume, infraestrutura, retenção, IA, suporte e capacitação.
+- Cotações datadas, licenças de ativos, tributos e contingência justificada, sem duplicidade.
+- Responsáveis/metas do experimento, fonte autorizada, identidade, hospedagem e instrumento oficial de maturidade.
+
+Reconciliar essas entradas com cronograma e preço antes de produzir a versão final dos anexos/pitch. Não houve protocolo ou contato com terceiros. As seções históricas de `entrega.md` mantêm as evidências de suas respectivas versões.
+
+## Registro de validação
+
+Resultados, revisões e commit exato serão registrados após o encerramento da rodada. Evidências regeneráveis em `output/validation/`: resultados local/autenticado/real quando executado, tipografia, `diagnostic.json`, `document-formats.json` e capturas desktop/celular. Uma aprovação local não certifica segurança, capacidade ou aderência corporativa.

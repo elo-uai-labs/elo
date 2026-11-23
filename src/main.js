@@ -24,6 +24,8 @@ let state;
 let session;
 let people = [];
 const selectedFiles = new Map();
+let importPreview;
+let importRequest;
 let sending = false;
 let laboratoryResult;
 let supervisionResult;
@@ -72,7 +74,7 @@ function permissionReason(endpoint, form) {
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
-  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create', 'scenario/create', 'evidence/analyze', 'evidence/review'];
+  const analyst = ['import', 'import/preview', 'import/file', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create', 'scenario/create', 'evidence/analyze', 'evidence/review'];
   const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review', 'scenario/create', 'rule/config', 'evidence/analyze', 'evidence/review'];
   if (endpoint.startsWith('work/')) {
     const item = state.work_items?.find((work) => work.id === form.querySelector('input[name=id]')?.value);
@@ -114,6 +116,8 @@ function expiredSession(error) {
   state = undefined;
   people = [];
   selectedFiles.clear();
+  importPreview = undefined;
+  importRequest = undefined;
   insights = undefined;
   insightsError = '';
   workSummary = undefined;
@@ -177,6 +181,7 @@ function datasetPanel() {
     <p-accordion><p-heading slot="summary" tag="h3" size="sm">Consultar registros de origem</p-heading>
       ${[['employees', 'Empregados'], ['suppliers', 'Fornecedores'], ['contracts', 'Contratos']].map(([key, label]) => `<p-heading tag="h4" size="sm">${label}</p-heading><p-text class="technical" size="sm">${escape(JSON.stringify(state.dataset[key], null, 2))}</p-text>`).join('')}
     </p-accordion>
+    ${tabularImportPanel()}
     <p-accordion><p-heading slot="summary" tag="h3" size="sm">Importar base sintética</p-heading>
       <p-text size="sm">Cole um JSON com employees, suppliers e contracts. A importação acrescenta registros, preservando a base e as decisões anteriores. Use identificadores novos e exclusivos; contratos devem referenciar empregados e fornecedores da base ou do novo lote. Depois, execute a análise na Central de inteligência.</p-text>
       <form class="form" data-endpoint="import" data-testid="import-form">
@@ -186,6 +191,41 @@ function datasetPanel() {
         <div class="actions"><p-button variant="secondary" icon="none" type="submit">Importar base</p-button></div>
       </form>
     </p-accordion>`);
+}
+
+function tabularImportPanel() {
+  const result = importPreview;
+  const fields = { employees: ['id', 'name', 'role', 'contact_code'], suppliers: ['id', 'name', 'contact_code'], contracts: ['id', 'supplier_id', 'approver_id', 'title'] };
+  return `<p-accordion ${result ? 'open' : ''}><p-heading slot="summary" tag="h3" size="sm">Importar CSV ou XLSX</p-heading>
+    <p-text size="sm">Escolha uma tabela por arquivo ou aba. Importe empregados e fornecedores antes dos contratos. A prévia permite mapear colunas e conferir erros; somente a confirmação grava registros. Limite: 256 KiB por arquivo, 500 registros por tabela. Dados exclusivamente fictícios.</p-text>
+    <form class="form" data-endpoint="import/preview" data-testid="tabular-preview">
+      <input type="file" hidden data-native-file-picker id="file-tabular" accept=".csv,.xlsx" data-upload-key="tabular">
+      <p-button variant="secondary" icon="none" type="button" data-pick-file="file-tabular">Selecionar CSV ou XLSX</p-button>
+      <p-text size="sm" data-selected-file="tabular">${escape(selectedFiles.get('tabular')?.name || 'Nenhum arquivo selecionado.')}</p-text>
+      ${selectField('import-table', 'table', 'Tabela de destino', [['employees', 'Empregados'], ['suppliers', 'Fornecedores'], ['contracts', 'Contratos']], result?.table || 'employees')}
+      ${result?.sheets?.length ? selectField('import-sheet', 'sheet', 'Aba da planilha', result.sheets.map((name) => [name, name]), result.sheet) : ''}
+      ${result ? fields[result.table].map((name) => selectField(`map-${name}`, `map_${name}`, `Coluna para ${name}`, [['', 'Selecione a coluna'], ...result.columns.map((column) => [column, column])], result.mapping?.[name] || '')).join('') : ''}
+      <p-checkbox name="synthetic" value="true" label="Confirmo que a base contém somente dados fictícios" required></p-checkbox>
+      <p-button variant="secondary" icon="none" type="submit">Validar arquivo e mapeamento</p-button>
+    </form>
+    ${result ? `<section class="stack" data-testid="import-preview-result"><p-heading tag="h4" size="sm">Prévia da importação</p-heading>
+      <p-tag variant="${result.ready ? 'success' : 'warning'}">${result.ready ? 'Pronto para confirmar' : 'Corrigir mapeamento ou registros'}</p-tag>
+      <p-text size="sm">${result.counts.records} registro(s), ${result.counts.valid} válido(s), ${result.counts.errors} erro(s). Nenhum registro foi gravado nesta prévia.</p-text>
+      ${[...(result.errors || []), ...(result.warnings || [])].length ? `<p-text-list>${[...(result.errors || []), ...(result.warnings || [])].map((error) => `<p-text-list-item>${escape(typeof error === 'string' ? error : `Linha ${error.row} · ${error.field || 'registro'}: ${error.message}`)}</p-text-list-item>`).join('')}</p-text-list>` : ''}
+      <p-accordion><p-heading slot="summary" tag="h5" size="sm">Conferir registros convertidos</p-heading><p-text class="technical" size="sm">${escape(JSON.stringify(result.dataset || result.rows, null, 2))}</p-text></p-accordion>
+      ${result.ready ? `<form class="form" data-endpoint="import/file" data-testid="tabular-confirm">${field('tabular-actor', 'actor', 'Responsável pela importação')}<p-checkbox name="confirmed" value="true" label="Conferi a prévia e confirmo a importação" required></p-checkbox><p-button variant="secondary" icon="none" type="submit">Confirmar importação do arquivo</p-button></form>` : ''}
+    </section>` : ''}
+  </p-accordion>`;
+}
+
+function capabilitiesPanel() {
+  return `<p-accordion data-testid="capabilities"><p-heading slot="summary" tag="h2" size="sm">Capacidades e limites desta versão</p-heading>
+    <p-text-list>
+      <p-text-list-item><p-tag variant="success">Funcional local</p-tag><p-text size="sm">Bases sintéticas JSON/CSV/XLSX, duas regras, correlação por contrato, revisão humana, planos, contas locais e exportação verificável de auditoria.</p-text></p-text-list-item>
+      <p-text-list-item><p-tag variant="warning">Experimental</p-tag><p-text size="sm">IA real quando configurada; extração literal de PDF digital e planilhas com revisão e localização. A precisão depende do documento. PDF requer dependência local instalada. Imagens e scans não têm OCR.</p-text></p-text-list-item>
+      <p-text-list-item><p-tag variant="secondary">Planejado / depende da CAIXA</p-tag><p-text size="sm">SSO/MFA, fontes corporativas, infraestrutura autorizada, ancoragem externa de auditoria, OCR validado e metodologia oficial de maturidade. A metodologia atual é ilustrativa. Custos e proposta comercial ainda pendentes.</p-text></p-text-list-item>
+    </p-text-list><p-text size="sm">Execução local e dados fictícios. IA não decide impactos. Esta demonstração não representa homologação corporativa.</p-text>
+  </p-accordion>`;
 }
 
 function decisionOutcome(outcome) {
@@ -452,8 +492,19 @@ function intelligence() {
   const caseSummary = panel(`${escape(current.title || 'Possível conflito de interesses')} · ${escape(current.id)}`, '<p-text>O vínculo cadastral requer revisão humana. As evidências não demonstram, por si só, uma irregularidade.</p-text>', badge(current.status));
   return `${title}<div class="grid">
     <div class="stack">${caseSummary}${dossierPanel(current.dossier, Boolean(current.decision))}${decisionPanel(current)}${caseLinks()}${assistantPanel(current)}</div>
-    <div class="stack">${memoryPanel()}${evidenceList(current)}${detectionPanel()}${datasetPanel()}${laboratoryPanel()}</div>
+    <div class="stack">${correlationPanel()}${memoryPanel()}${evidenceList(current)}${detectionPanel()}${datasetPanel()}${laboratoryPanel()}</div>
   </div>`;
+}
+
+function correlationPanel() {
+  const correlation = insights?.correlation;
+  return panel('Sinais do mesmo contrato', `${insightFeedback()}<p-text size="sm">${escape(correlation?.scope || 'Aguardando contexto analítico.')}</p-text>
+    <p-text size="sm">${escape(correlation?.methodology?.description || '')}</p-text><p-text size="sm">Analise sinais relacionados em conjunto. Antes de abrir outro trabalho, confira os trabalhos vinculados. Decisões e impactos de cada sinal permanecem separados.</p-text>
+    ${(correlation?.groups || []).map((group) => `<section class="stack" data-testid="correlation-${escape(group.contract_id)}"><p-heading tag="h3" size="sm">${escape(group.contract_id)} · ${group.signal_count} sinal(is)</p-heading>
+      <p-text size="sm">${escape(group.reason)}</p-text><p-text size="sm">Prioridade: ${escape(group.priority.value ? format(group.priority.value) : 'Não atribuída')} · ${group.priority.reasons.map(escape).join(' ')}</p-text>
+      <p-text-list>${group.signals.map((signal) => `<p-text-list-item><form data-endpoint="select-case">${hidden('case_id', signal.case_id)}<p-text size="sm">${escape(signal.case_id)} · ${escape(signal.rule?.id || 'Regra legada')} · ${format(signal.status)}</p-text><p-button type="submit" variant="tertiary" icon="none">Analisar ${escape(signal.case_id)}</p-button></form></p-text-list-item>`).join('')}</p-text-list>
+      <p-text size="sm">Trabalhos vinculados: ${group.work_items.length ? group.work_items.map((item) => `${escape(item.id)} · ${escape(item.status)}`).join('; ') : 'Nenhum. É possível vincular vários casos ao mesmo trabalho na Visão geral.'}</p-text>
+    </section>`).join('')}`);
 }
 
 function hidden(name, value) {
@@ -636,8 +687,8 @@ function attachmentUpload(action) {
   const selected = selectedFiles.get(key);
   return `<form class="form" data-endpoint="evidence/upload" data-upload-key="${escape(key)}" data-testid="upload-${escape(key)}">
     ${hidden('case_id', caseId)}${action ? hidden('action_id', action.id) : ''}
-    <p-text size="sm">TXT, PDF, PNG ou JPEG fictícios, até 1 MiB por arquivo e 20 MiB no ambiente. Os arquivos binários não são enviados ao modelo. Textos TXT de até 32 KiB podem ser extraídos e revisados separadamente antes de fornecer trechos ao assistente.</p-text>
-    <input type="file" hidden data-native-file-picker id="file-${escape(key)}" accept=".txt,.pdf,.png,.jpg,.jpeg" data-upload-key="${escape(key)}">
+    <p-text size="sm">TXT, CSV, XLSX, PDF, PNG ou JPEG fictícios, até 1 MiB por arquivo e 20 MiB no ambiente. Extração literal de TXT, PDF digital e planilhas, até 32 KiB de texto, com localização e revisão humana antes do uso pelo assistente. Imagens e scans sem OCR. Arquivos binários não são enviados ao modelo.</p-text>
+    <input type="file" hidden data-native-file-picker id="file-${escape(key)}" accept=".txt,.csv,.xlsx,.pdf,.png,.jpg,.jpeg" data-upload-key="${escape(key)}">
     <div class="actions"><p-button variant="secondary" icon="none" type="button" data-pick-file="file-${escape(key)}">Selecionar arquivo de evidência</p-button></div>
     <p-text size="sm" class="reading" data-selected-file="${escape(key)}" aria-live="polite">${selected ? `${escape(selected.name)} · ${selected.size} bytes` : 'Nenhum arquivo selecionado.'}</p-text>
     ${paragraph(`file-${key}-description`, 'description', 'Descrição e relação com o caso')}
@@ -658,16 +709,18 @@ function attachmentList(items) {
 function documentAnalysisPanel() {
   const attachments = (state.attachments || []).filter((item) => item.case_id === state.case.id);
   const analyses = (state.document_analyses || []).filter((item) => item.case_id === state.case.id);
-  return `<section class="stack"><p-heading tag="h3" size="md">Leitura literal de documentos TXT</p-heading>
-    <p-text size="sm">Extração local de texto e identificadores, sem IA, OCR ou interpretação. Somente TXT de até 32 KiB. Revise o conteúdo antes de aceitar; apenas trechos aceitos podem compor as fontes do assistente deste caso.</p-text>
-    ${attachments.filter((item) => item.media_type === 'text/plain' && item.size <= 32768 && !analyses.some((analysis) => analysis.attachment_id === item.id)).map((item) => `<form class="form" data-endpoint="evidence/analyze" data-testid="analyze-${escape(item.id)}">${hidden('attachment_id', item.id)}<p-text weight="semibold">${escape(item.name)} · ${escape(item.id)}</p-text>${field(`analyze-${item.id}-actor`, 'actor', 'Responsável pela extração')}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Extrair texto de ${escape(item.id)}</p-button></div></form>`).join('')}
+  return `<section class="stack"><p-heading tag="h3" size="md">Leitura literal de documentos</p-heading>
+    <p-text size="sm">Extração local, sem IA, OCR ou interpretação. PDF digital, TXT e planilhas; até 32 KiB de texto. Confira a página, linha ou célula no original. Extração inconclusiva não pode ser aceita como fonte.</p-text>
+    ${attachments.filter((item) => ['text/plain', 'text/csv', 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'].includes(item.media_type) && !analyses.some((analysis) => analysis.attachment_id === item.id)).map((item) => `<form class="form" data-endpoint="evidence/analyze" data-testid="analyze-${escape(item.id)}">${hidden('attachment_id', item.id)}<p-text weight="semibold">${escape(item.name)} · ${escape(item.id)}</p-text>${field(`analyze-${item.id}-actor`, 'actor', 'Responsável pela extração')}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Extrair texto de ${escape(item.id)}</p-button></div></form>`).join('')}
     ${analyses.map((analysis) => `<section class="stack" data-testid="document-${escape(analysis.id)}"><div class="entry-header"><p-heading tag="h4" size="sm">${escape(analysis.id)} · ${escape(analysis.attachment_id)}</p-heading><p-tag class="document-status" variant="${analysis.status === 'accepted' ? 'success' : 'secondary'}">${escape({ pending: 'Aguardando revisão', accepted: 'Texto aceito', rejected: 'Texto rejeitado' }[analysis.status])}</p-tag></div>
       <p-text size="sm">${escape(analysis.processor)} · ${escape(analysis.actor)} · ${escape(analysis.created_at)}</p-text><p-text size="sm">${escape(analysis.limitations)}</p-text>
+      ${analysis.extraction_status === 'inconclusive' ? '<p-inline-notification state="warning" heading="Extração inconclusiva" description="Confira o original. Este resultado não pode ser aceito como fonte; OCR não está disponível." dismiss-button="false"></p-inline-notification>' : ''}
+      ${analysis.segments?.length ? `<p-accordion><p-heading slot="summary" tag="h5" size="sm">Localizar trechos no original</p-heading><p-text-list>${analysis.segments.map((segment) => `<p-text-list-item><p-text weight="semibold">${escape(segment.location)}</p-text><p-text class="technical document-text" size="sm">${escape(segment.text)}</p-text></p-text-list-item>`).join('')}</p-text-list></p-accordion>` : ''}
       <p-text size="sm">Identificadores reconhecidos: ${analysis.record_ids.map(escape).join(', ') || 'Nenhum'}.</p-text><p-text size="sm">Identificadores sem correspondência: ${analysis.unknown_ids.map(escape).join(', ') || 'Nenhum'}.</p-text>
       <p-link-pure icon="none" href="/api/evidence/${encodeURIComponent(analysis.attachment_id)}" download>Baixar documento original · ${escape(analysis.attachment_id)}</p-link-pure>
       ${analysis.review ? `<p-accordion><p-heading slot="summary" tag="h5" size="sm">Ler texto extraído · ${escape(analysis.id)}</p-heading><p-text class="technical document-text" size="sm" data-testid="document-text">${escape(analysis.text)}</p-text></p-accordion>` : `<section class="entry-content"><p-heading tag="h5" size="sm">Ler texto extraído · ${escape(analysis.id)}</p-heading><p-text class="technical document-text" size="sm" data-testid="document-text">${escape(analysis.text)}</p-text></section>`}
       ${analysis.review ? `<p-text size="sm">Revisão: ${escape(analysis.review.actor)} · ${escape(analysis.review.reason)}</p-text>` : `<form class="form" data-endpoint="evidence/review" data-testid="document-review-${escape(analysis.id)}">${hidden('analysis_id', analysis.id)}${hidden('revision', analysis.revision)}
-        ${selectField(`document-outcome-${analysis.id}`, 'outcome', 'Decisão sobre o texto extraído', [['accepted', 'Aceitar texto como fonte'], ['rejected', 'Rejeitar texto']])}
+        ${selectField(`document-outcome-${analysis.id}`, 'outcome', 'Decisão sobre o texto extraído', [...(analysis.extraction_status === 'inconclusive' ? [] : [['accepted', 'Aceitar texto como fonte']]), ['rejected', 'Rejeitar texto']])}
         <p-checkbox name="confirmed" value="true" label="Li o texto extraído, conferi o documento e os limites desta extração" required></p-checkbox>
         ${auditFields(`document-${analysis.id}`)}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Registrar revisão do texto</p-button></div>
       </form>`}</section>`).join('')}
@@ -875,7 +928,7 @@ function render() {
   document.title = `${views[route]} | Elo`;
   document.querySelector('p-tabs-bar').setAttribute('active-tab-index', Object.keys(views).indexOf(route));
   if (state) {
-    view.innerHTML = `<div class="page">${sessionBanner()}${pages[route]()}</div>`;
+    view.innerHTML = `<div class="page">${sessionBanner()}${pages[route]()}${capabilitiesPanel()}</div>`;
     view.querySelectorAll('form[data-endpoint]').forEach((form) => {
       const reason = permissionReason(form.getAttribute('data-endpoint'), form);
       if (reason) form.outerHTML = `<p-text size="sm" color="contrast-high" data-testid="permission-notice">${escape(reason)}</p-text>`;
@@ -908,17 +961,37 @@ view.addEventListener('click', (event) => {
   if (button && !sending) document.getElementById(button.getAttribute('data-pick-file'))?.click();
 });
 
+function invalidateImportPreview(event) {
+  const control = event.target;
+  if (!control.closest?.('[data-testid="tabular-preview"]') || !importRequest) return;
+  const name = control.getAttribute('name');
+  if (!['table', 'sheet', 'synthetic'].includes(name) && !name?.startsWith('map_')) return;
+  importRequest = undefined;
+  if (importPreview) importPreview.ready = false;
+  view.querySelector('[data-testid="tabular-confirm"]')?.remove();
+  const tag = view.querySelector('[data-testid="import-preview-result"] p-tag');
+  if (tag) { tag.textContent = 'Configuração alterada: valide novamente'; tag.setAttribute('variant', 'warning'); }
+}
+view.addEventListener('change', invalidateImportPreview);
+view.addEventListener('update', invalidateImportPreview, {capture: true});
+
 view.addEventListener('change', (event) => {
   const picker = event.target;
   if (!picker.matches('input[data-native-file-picker]')) return;
   const key = picker.getAttribute('data-upload-key');
   const file = picker.files?.[0];
   selectedFiles.delete(key);
+  if (key === 'tabular') {
+    importPreview = undefined;
+    importRequest = undefined;
+    view.querySelector('[data-testid="import-preview-result"]')?.remove();
+  }
   const label = [...view.querySelectorAll('[data-selected-file]')].find((element) => element.getAttribute('data-selected-file') === key);
   if (label) label.textContent = 'Nenhum arquivo selecionado.';
   if (!file) return;
   if (file.size > 1048576) { announce('O arquivo excede o limite de 1 MiB.', true); return; }
-  if (!/\.(txt|pdf|png|jpe?g)$/i.test(file.name)) { announce('Selecione um arquivo TXT, PDF, PNG ou JPEG.', true); return; }
+  if (key === 'tabular' && (file.size > 262144 || !/\.(csv|xlsx)$/i.test(file.name))) { announce('Selecione CSV ou XLSX de até 256 KiB.', true); return; }
+  if (key !== 'tabular' && !/\.(txt|csv|xlsx|pdf|png|jpe?g)$/i.test(file.name)) { announce('Selecione TXT, CSV, XLSX, PDF, PNG ou JPEG.', true); return; }
   selectedFiles.set(key, file);
   if (label) label.textContent = `${file.name} · ${file.size} bytes`;
   announce('Arquivo selecionado. Confirme os dados fictícios e registre a descrição antes de anexar.');
@@ -965,7 +1038,7 @@ view.addEventListener('submit', async (event) => {
       if (file.size > 1048576) throw new Error('O arquivo excede o limite de 1 MiB.');
       payload.name = file.name;
       const extension = file.name.split('.').at(-1).toLowerCase();
-      payload.media_type = file.type || ({txt:'text/plain',pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg'}[extension] || 'application/octet-stream');
+      payload.media_type = ({txt:'text/plain',csv:'text/csv',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg'}[extension] || 'application/octet-stream');
       payload.content_base64 = await encodeFile(file);
       payload.synthetic = payload.synthetic === 'true';
     }
@@ -987,7 +1060,24 @@ view.addEventListener('submit', async (event) => {
       payload.confirmed = payload.confirmed === 'true';
       Object.keys(payload).filter((key) => key.startsWith('answer_')).forEach((key) => delete payload[key]);
     }
-    if (endpoint === 'login') {
+    if (endpoint === 'import/preview') {
+      const file = selectedFiles.get('tabular');
+      if (!file) throw new Error('Selecione um arquivo CSV ou XLSX.');
+      const request = {filename: file.name, content_base64: await encodeFile(file), table: payload.table, synthetic: payload.synthetic === 'true'};
+      if (payload.sheet) request.sheet = payload.sheet;
+      if (importPreview?.table === payload.table) request.mapping = Object.fromEntries(Object.entries(payload).filter(([key, value]) => key.startsWith('map_') && value).map(([key, value]) => [key.slice(4), value]));
+      importPreview = undefined;
+      importRequest = undefined;
+      view.querySelector('[data-testid="import-preview-result"]')?.remove();
+      importPreview = await read('/api/import/preview', request);
+      importRequest = request;
+    } else if (endpoint === 'import/file') {
+      if (!importPreview?.ready || !importRequest || payload.confirmed !== 'true') throw new Error('Valide o arquivo e confirme a prévia antes de importar.');
+      state = await read('/api/import/file', {...importRequest, actor: payload.actor});
+      importPreview = undefined;
+      importRequest = undefined;
+      selectedFiles.delete('tabular');
+    } else if (endpoint === 'login') {
       session = await read('/api/login', payload);
       await loadWorkspace();
     } else if (endpoint === 'logout') {
@@ -995,6 +1085,8 @@ view.addEventListener('submit', async (event) => {
       state = undefined;
       people = [];
       selectedFiles.clear();
+      importPreview = undefined;
+      importRequest = undefined;
       insights = undefined;
       insightsError = '';
       workSummary = undefined;
@@ -1028,7 +1120,7 @@ view.addEventListener('submit', async (event) => {
     else url.searchParams.delete('case_id');
     history.replaceState(null, '', url);
     sending = false;
-    announce(endpoint === 'login' ? 'Sessão iniciada.' : endpoint === 'logout' ? 'Sessão encerrada.' : endpoint === 'select-case' ? 'Caso selecionado.' : ['laboratory/run', 'supervision/read', 'insights/read'].includes(endpoint) ? 'Consulta concluída.' : 'Registro atualizado.');
+    announce(endpoint === 'import/preview' ? 'Prévia calculada. Confira o mapeamento e os registros antes de confirmar.' : endpoint === 'login' ? 'Sessão iniciada.' : endpoint === 'logout' ? 'Sessão encerrada.' : endpoint === 'select-case' ? 'Caso selecionado.' : ['laboratory/run', 'supervision/read', 'insights/read'].includes(endpoint) ? 'Consulta concluída.' : 'Registro atualizado.');
     render();
     view.querySelector('p-heading[tag=h1]')?.focus({ preventScroll: true });
   } catch (error) {

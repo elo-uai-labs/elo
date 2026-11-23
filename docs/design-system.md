@@ -29,3 +29,7 @@ Fontes oficiais: [Integração](https://designsystem.porsche.com/v4/developing/v
 ## Seleção de arquivos
 
 O catálogo `componentMeta` da versão 4.10.1 não oferece componente de arquivo/upload. A interface usa `p-button` oficial para abrir um `input type="file" hidden data-native-file-picker`, limitado ao seletor nativo da plataforma; nome, descrição, confirmação sintética e feedback usam componentes PDS. Não há controle nativo visível ou réplica CSS. O teste de controles permite somente esse seletor oculto, com os três atributos exatos, e valida abertura por teclado.
+
+## Importação e documentos · 23/11/2026
+
+Prévia CSV/XLSX usa p-select/p-select-option para tabela, aba e mapeamento; p-checkbox para confirmação sintética; p-button para seleção/validação/gravação; p-tag e p-text-list para erros e contagens. Leitura de documentos usa p-accordion, p-text e p-inline-notification, preservando página/célula e revisão humana. Correlação usa os mesmos componentes oficiais. Nenhuma alteração na tipografia, folha completa, partials ou internos dos componentes. Seletores de arquivo permanecem ocultos, acionados por p-button.

@@ -138,3 +138,75 @@ def simulate(state, data):
                 "effect": "Simulação registrada; a avaliação vigente do risco não foi alterada."}
     scenarios.append(scenario)
     return "Cenário simulado", actor, deepcopy(scenario)
+
+
+def correlated_cases(state, case_id=None):
+    """Read-only groups of signals about the exact same evidenced contract.
+
+    Contact, supplier, risk and dimension similarities never establish identity
+    of a fact. Historical signals and decisions remain independent records.
+    """
+    require(state.get("audit_valid"), "Verifique a integridade antes de correlacionar sinais.")
+    if case_id is not None:
+        selected_case(state, case_id)
+    from work import PRIORITIES
+
+    groups = {}
+    case_groups = {}
+    for case in state.get("cases", []):
+        contract = case.get("records", {}).get("contract", {})
+        contract_id = contract.get("id")
+        evidenced = isinstance(contract_id, str) and contract_id in {
+            source.get("id") for source in case.get("evidence", [])}
+        # Missing provenance cannot turn otherwise similar records into a group.
+        key = "contract:" + contract_id if evidenced else "case:" + case["id"]
+        group = groups.setdefault(key, {
+            "id": key, "contract_id": contract_id if evidenced else None,
+            "case_ids": [], "signals": [], "work_items": [],
+            "reason": (f"Mesmo contrato de origem {contract_id}, presente nos registros e nas fontes de cada sinal."
+                       if evidenced else "Origem contratual não demonstrada; sinal mantido separado."),
+        })
+        group["case_ids"].append(case["id"])
+        group["signals"].append({"case_id": case["id"], "title": case["title"],
+            "status": case["status"], "rule": deepcopy(case.get("rule")),
+            "decision": deepcopy(case.get("decision")),
+            "source_ids": [source["id"] for source in case.get("evidence", [])]})
+        case_groups[case["id"]] = key
+
+    # Index once, avoiding a groups × work-items scan at the local limits.
+    for item in state.get("work_items", []):
+        for key in sorted({case_groups[identifier] for identifier in item.get("case_ids", [])
+                           if identifier in case_groups}):
+            groups[key]["work_items"].append({field: deepcopy(item.get(field)) for field in (
+                "id", "title", "status", "priority", "priority_reason", "case_ids", "owner", "due")})
+
+    results = []
+    for group in groups.values():
+        group["case_ids"].sort()
+        group["signals"].sort(key=lambda signal: signal["case_id"])
+        group["work_items"].sort(key=lambda item: item["id"])
+        group["signal_count"] = len(group["signals"])
+        group["distinct_rule_count"] = len({signal["rule"]["id"] for signal in group["signals"]
+                                           if signal.get("rule") and signal["rule"].get("id")})
+        group["pending_count"] = sum(signal["decision"] is None for signal in group["signals"])
+        active = [item for item in group["work_items"]
+                  if item["status"] in ("planned", "in_progress") and item["priority"] in PRIORITIES]
+        rank = max((PRIORITIES.index(item["priority"]) + 1 for item in active), default=0)
+        highest = [item for item in active if PRIORITIES.index(item["priority"]) + 1 == rank]
+        group["priority"] = {"value": PRIORITIES[rank - 1] if rank else None, "rank": rank,
+            "source": "human_work" if rank else "unassigned",
+            "work_ids": [item["id"] for item in highest],
+            "reasons": [f"{item['id']}: {item['priority_reason']}" for item in highest]
+                       or ["Sem prioridade humana em trabalho ativo vinculado."],
+            "distinct_rules": group["distinct_rule_count"], "pending_signals": group["pending_count"]}
+        group["selected"] = case_id in group["case_ids"] if case_id else False
+        results.append(group)
+    results.sort(key=lambda group: (-group["priority"]["rank"], -group["distinct_rule_count"],
+                                    -group["pending_count"], group["id"]))
+    return {"groups": results, "group_count": len(results),
+        "signal_count": sum(group["signal_count"] for group in results),
+        "methodology": {"version": "elo-contract-correlation-v1", "group_by": "evidenced_contract_id",
+            "priority_order": list(reversed(PRIORITIES)),
+            "tie_breakers": ["distinct_rules_desc", "pending_signals_desc", "group_id_asc"],
+            "description": "Agrupamento pelo contrato exato nas fontes. Ordenação pela maior prioridade humana de trabalho ativo vinculado; depois número de regras distintas, sinais sem decisão e identificador. Não estima gravidade ou probabilidade."},
+        "scope": "Visão conjunta local e sintética. Compartilhar contrato não comprova que os sinais tenham a mesma causa ou que exista irregularidade. Contatos, riscos ou fornecedores em comum não agrupam contratos diferentes. Decisões, impactos e históricos permanecem separados; consulte os trabalhos vinculados antes de criar outro."}

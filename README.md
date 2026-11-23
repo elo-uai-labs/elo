@@ -39,7 +39,7 @@ Alternativamente, configure `OPENAI_API_KEY` e `ELO_MODEL` no ambiente ou em `.e
 ## Jornada disponível
 
 1. **Visão geral:** indicadores calculados, trabalhos da 2ª Linha com prioridade justificada, responsáveis, prazos e acompanhamento independente dos casos.
-2. **Inteligência:** configurar e executar duas regras sintéticas, medir ambas no laboratório, consultar fontes/anexos, revisar textos TXT, gerar dossiês, decidir e consultar o assistente.
+2. **Inteligência:** configurar e executar duas regras sintéticas, medir ambas no laboratório, consultar fontes/anexos, revisar textos TXT, PDF digital e planilhas, gerar dossiês, decidir e consultar o assistente.
 3. **Risco e maturidade:** gerenciar riscos, controles, avaliações e lacunas; aprovar impactos separadamente e simular cenários sem alterar o risco vigente.
 4. **Plano e auditoria:** atribuir planos, anexar execução, solicitar encerramento para revisão independente, revisar relatórios citados e exportar auditoria com arquivos.
 
@@ -103,7 +103,7 @@ A Central de inteligência apresenta relações entre registros, tendências men
 
 O assistente responde perguntas sobre o **caso selecionado**, registra pergunta/resposta/fontes e pode se abster. O modo local é uma busca textual determinística; IA real usa o provedor configurado e o contrato `elo-assistant-v1`. O contexto é limitado e pode ser parcial; não inclui bytes binários nem outros casos. Pode incluir até três textos TXT aceitos por revisão humana, com trechos de até 700 caracteres e indicação de contexto parcial. Citações verificam referência, não comprovam por si só a sustentação semântica. Nenhuma resposta executa decisões ou altera riscos. Consultas são auditadas e acessíveis aos perfis autenticados deste ambiente.
 
-Relatórios compilam afirmações de dossiês já revisados, com suas fontes preservadas e decisões humanas separadas, sem nova chamada de IA. A revisão exige pessoa distinta do autor quando o login está ativo. Evidências sintéticas TXT/PDF/PNG/JPEG ficam imutáveis no SQLite, com limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos; PDF/imagens permanecem anexos sem OCR. TXT UTF-8 de até 32 KiB pode passar por extração literal local e reconhecimento de IDs, sem IA; somente após aceitação humana seus trechos podem integrar o assistente.
+Relatórios compilam afirmações de dossiês já revisados, com suas fontes preservadas e decisões humanas separadas, sem nova chamada de IA. A revisão exige pessoa distinta do autor quando o login está ativo. Evidências sintéticas TXT/CSV/XLSX/PDF/PNG/JPEG ficam imutáveis no SQLite, com limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos; TXT, PDF digital e planilhas podem passar por extração literal local com página/linha/célula e revisão humana. O texto extraído tem limite de 32 KiB. Resultados inconclusivos não podem ser aceitos; imagens e scans continuam sem OCR. PDF requer o ambiente isolado descrito abaixo.
 
 [Monitoramento sintético](docs/monitoring.md) descreve a ingestão recorrente opcional de uma pasta controlada, sem conectar fontes reais. [Operação e recuperação](docs/operations.md) descreve backup/restauração verificados para caminhos novos, sem sobrescrever a origem. Nenhum monitor, conta ou backup manual foi criado automaticamente.
 
@@ -114,4 +114,17 @@ A base local não conclui o piloto corporativo: faltam provedor de identidade, f
 
 Trabalhos da 2ª Linha têm ciclo planejado → em andamento → concluído ou cancelado, controle de versão e justificativas; tempos reportados são corridos, não horas trabalhadas. A trilha HTTP separada registra acessos, login/logout, exportações, downloads, recusas e alterações, com identidade/modo e IP do socket. Não guarda senhas, tokens, corpos ou query arbitrária. Sua exportação é restrita a auditor/revisor/administrador no modo autenticado e verifica cadeia/manifesto independentes; backup também verifica essa trilha. Falha no registro HTTP após commit não desfaz uma alteração de negócio: a resposta orienta conferir o estado antes de repetir.
 
-Backend desta evolução: **147 testes passaram, conforme registro do orquestrador**. A validação final da interface e E2E ampliado está em execução; aceites anteriores não cobrem automaticamente estas mudanças. Consulte a [matriz do edital](docs/edital-execution.md), [plano experimental](docs/pilot-experiment.md), [prontidão de segurança](docs/security-readiness.md) e [modelo de custos](docs/cost-model.csv). O CSV contém fórmulas e valores **A DEFINIR**, não orçamento calculado ou proposta comercial. Não há declaração de conformidade CAIXA ou produção.
+Os resultados históricos e a validação de cada evolução estão no registro de entrega; a implementação do diagnóstico de 23/11 tem critérios e evidências próprios. Consulte a [matriz do edital](docs/edital-execution.md), [plano experimental](docs/pilot-experiment.md), [prontidão de segurança](docs/security-readiness.md) e [modelo de custos](docs/cost-model.csv). O CSV contém fórmulas e valores **A DEFINIR**, não orçamento calculado ou proposta comercial. Não há declaração de conformidade CAIXA ou produção.
+
+## Evolução do diagnóstico da Ana · 23/11/2026
+
+A interface oferece importação assistida CSV/XLSX com mapeamento e prévia sem escrita; a confirmação revalida e importa atomicamente. Empregados e fornecedores devem ser importados antes dos contratos. Sinais do mesmo contrato aparecem juntos, com trabalhos vinculados e prioridade humana explicada, preservando decisões separadas. O painel de capacidades distingue funcionalidades locais, experimentos e dependências corporativas.
+
+Para extrair PDF digital, prepare o leitor no ambiente isolado:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-documents.txt
+```
+
+A inicialização e os testes backend preferem esse Python quando presente; `PYTHON` permite seleção explícita. CSV/XLSX não exigem bibliotecas adicionais. Consulte o [roteiro reproduzível, limites e pendências](docs/diagnostico-ana-2026-11-23.md) e os [dados sintéticos da demo](docs/demo/). OCR, identidade/infraestrutura corporativa, metodologia oficial e orçamento aprovado permanecem pendentes.

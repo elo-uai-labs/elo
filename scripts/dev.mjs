@@ -60,7 +60,7 @@ export async function launch({ production = false } = {}) {
   };
   const args = ['backend/server.py', '--port', String(apiPort), '--db', env.ELO_DB || path.join(root, 'data/elo.sqlite3')];
   args.push(...(production ? ['--dist', path.join(root, 'dist')] : ['--frontend-port', String(webPort)]));
-  child(env.PYTHON || 'python3', args);
+  child(env.PYTHON || (existsSync(path.join(root, '.venv/bin/python3')) ? path.join(root, '.venv/bin/python3') : 'python3'), args);
   for (let attempt = 0; attempt < 100; attempt++) {
     if (stopping) throw new Error('Não foi possível iniciar a API.');
     try {
