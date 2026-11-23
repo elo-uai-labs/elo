@@ -1,0 +1,25 @@
+Como transformar um indício em uma decisão que pode ser explicada, acompanhada e auditada?
+
+Este é o Elo, desenvolvido pela Uai Labs para conectar inteligência, riscos, maturidade e gestão dos trabalhos da segunda linha. Vamos acompanhar o produto funcionando, com dados inteiramente sintéticos.
+
+Na visão geral, a equipe encontra os casos, os riscos e as pendências do trabalho. A informação deixa de terminar em uma análise isolada e passa a percorrer um fluxo compartilhado.
+
+Começamos pela inteligência. O Elo cruza registros de contratos, fornecedores e empregados, aplicando regras explícitas. Neste exemplo, uma coincidência cadastral gera um sinal. Isso não comprova irregularidade: é um ponto de partida para investigação humana.
+
+Ao abrir o caso, vemos os registros de origem e a regra utilizada. A inteligência artificial organiza um dossiê com referências às fontes, limitações e sugestões de verificação. A pessoa pode conferir o que sustenta cada afirmação antes de decidir.
+
+A análise termina em uma decisão humana justificada. Quando um caso é qualificado, seus efeitos sobre riscos e maturidade seguem para revisão. A inteligência artificial não decide impactos, não atribui culpa e não aplica sanções.
+
+Nos módulos de riscos e maturidade, o mesmo caso mantém seus vínculos. Controles, avaliações e lacunas ficam conectados às evidências. O instrumento de maturidade atual é ilustrativo e deverá ser adaptado à metodologia oficial do piloto.
+
+A gestão transforma análise em acompanhamento. É possível planejar trabalhos da segunda linha, definir responsável, prioridade e prazo, vincular casos e registrar a conclusão. Os planos de ação têm evidências e revisão de encerramento. Os indicadores mostram pendências e tempo corrido de tratamento.
+
+Documentos também entram no fluxo. O Elo preserva o arquivo original e permite extrair texto de arquivos TXT. Uma pessoa revisa esse conteúdo antes de liberá-lo como fonte do assistente. Nas consultas, as respostas apresentam suas referências para conferência.
+
+Para ajustar a detecção, as regras possuem parâmetros versionados. O laboratório compara seus resultados com exemplos sintéticos de referência, mostrando acertos e erros. Assim, é possível avaliar uma mudança antes de ampliar seu uso.
+
+A rastreabilidade acompanha todo o percurso. Decisões, revisões e acessos possuem registros verificáveis. Relatórios, exportações e recuperação de backup ajudam a preservar o histórico. Perfis de acesso separam responsabilidades dentro da aplicação.
+
+O próximo passo é um piloto controlado, com metodologia, integrações e infraestrutura acordadas. O objetivo é medir esforço, rastreabilidade e qualidade do acompanhamento em tarefas reais.
+
+Elo. Da evidência à decisão humana, com continuidade e responsabilidade. Um produto Uai Labs.

@@ -10,3 +10,5 @@ __pycache__/
 .env
 .env.*
 !.env.example
+media/pitch/.hyperframes/
+media/pitch/renders/

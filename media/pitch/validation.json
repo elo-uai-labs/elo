@@ -1,0 +1,39 @@
+{
+  "programs": [],
+  "stream_groups": [],
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080,
+      "r_frame_rate": "30/1",
+      "duration": "180.000000"
+    },
+    {
+      "codec_name": "aac",
+      "codec_type": "audio",
+      "r_frame_rate": "0/0",
+      "duration": "180.000000"
+    }
+  ],
+  "format": {
+    "duration": "180.000000",
+    "size": "16195069"
+  },
+  "audio_measurement": {
+    "input_i": "-14.00",
+    "input_tp": "-1.10",
+    "input_lra": "3.80",
+    "input_thresh": "-24.28",
+    "output_i": "-15.85",
+    "output_tp": "-2.94",
+    "output_lra": "3.60",
+    "output_thresh": "-26.13",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.15"
+  },
+  "visual_review": "Decoded final frames inspected; no blank or missing sections in sampled frames.",
+  "voice_provider": "ElevenLabs; user connected account; Caio / Eleven Multilingual v2",
+  "speech_verification": "Local timestamped transcription; no human listening claimed."
+}

@@ -64,6 +64,8 @@ O teste também verifica componentes hidratados, tipografia computada, webfont e
 
 ## Estrutura
 
+O [pitch de apresentação](media/pitch/README.md) inclui vídeo de três minutos, narração, roteiro e projeto HyperFrames editável, usando capturas reais com dados sintéticos.
+
 - `src/main.js` — telas e integração com a API.
 - `src/styles.css` — import oficial e composição de layout com tokens.
 - `vite.config.js` — loader, preloads oficiais e proxy local.
