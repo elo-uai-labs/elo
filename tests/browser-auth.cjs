@@ -190,10 +190,19 @@ async function main() {
     await analyst.getByRole('button', { name: 'Sair', exact: true }).click();
     await analyst.getByRole('heading', { name: 'Entrar no Elo', exact: true }).waitFor();
     assert.equal((await analyst.request.get(`${baseUrl}/api/state`)).status(), 401);
+    await auditor.goto(`${baseUrl}/?case_id=ELO-1042#inteligencia`);
+    const auditQuery = auditor.getByTestId('assistant-form');
+    await auditQuery.getByLabel('Pergunta sobre este caso').fill('Qual é o risco vigente?');
+    await auditQuery.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+    await auditor.getByTestId('assistant-ASK-001').waitFor();
+    const queryState = await (await auditor.request.get(`${baseUrl}/api/state`)).json();
+    assert.equal(queryState.assistant_queries[0].actor, 'auditor');
+    assert.equal(queryState.assistant_queries[0].mode, 'local');
+    await auditor.getByTestId('assistant-form').getByLabel('Pergunta sobre este caso').fill('Qual é o risco vigente?');
     await auditor.context().clearCookies();
-    await auditor.getByRole('button', { name: 'Atualizar indicadores de supervisão', exact: true }).click();
+    await auditor.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
     await auditor.getByRole('heading', { name: 'Entrar no Elo', exact: true }).waitFor();
-    assert.equal(new URL(auditor.url()).hash, '#governanca');
+    assert.equal(new URL(auditor.url()).hash, '#inteligencia');
 
     const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     mobile.on('pageerror', (error) => errors.push(error.message));

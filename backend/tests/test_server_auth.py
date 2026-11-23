@@ -145,6 +145,33 @@ class AuthServerTest(unittest.TestCase):
         self.assertEqual(state['reports'][0]['review']['actor'], 'bob')
         self.assertTrue(state['audit_valid'])
 
+    def test_auditor_can_consult_with_canonical_identity_without_business_mutation(self):
+        _, before = self.qualified()
+        payload = {'actor': 'admin', 'case_id': 'ELO-1042', 'mode': 'local', 'question': 'Qual o risco vigente?'}
+        self.assertEqual(self.request('POST', '/api/assistant/query', payload)[0], 401)
+        auditor = self.login('eve')
+        status, _, state = self.request('POST', '/api/assistant/query', payload, auditor)
+        self.assertEqual(status, 200)
+        self.assertEqual(state['assistant_queries'][0]['actor'], 'eve')
+        self.assertEqual(state['audit'][-1]['authentication'], {'mode': 'local-auth', 'user_id': 'eve'})
+        for key in ('cases', 'risks', 'dimensions', 'actions'):
+            self.assertEqual(state[key], before[key])
+
+    def test_assistant_rechecks_session_after_generation(self):
+        import consultation
+        self.qualified()
+        auditor = self.login('eve')
+        before = self.store.export_state()
+        original = consultation.answer
+        def expire_during_answer(context):
+            result = original(context)
+            self.clock[0] = 31
+            return result
+        with patch('consultation.answer', side_effect=expire_during_answer):
+            status, _, _ = self.request('POST', '/api/assistant/query', {'case_id': 'ELO-1042', 'mode': 'local', 'question': 'Qual o risco vigente?'}, auditor)
+        self.assertEqual(status, 401)
+        self.assertEqual(self.store.export_state(), before)
+
     def test_scenario_authorization_is_server_side(self):
         auditor = self.login('eve')
         risk = self.store.read()['risk']

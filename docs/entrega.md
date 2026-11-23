@@ -18,9 +18,30 @@ Implementado e validado: importação incremental com validação atômica e lim
 
 Evidências regeneráveis em `output/validation/`: `result.json`, `typography.jsonl`, capturas, pacote de auditoria e `performance.json`. O checkpoint reúne também a aplicação preexistente, pois o repositório ainda não possuía commits. Branch local `codex/product-vision`, sem remoto/publicação.
 
-## Em desenvolvimento após S1
+## Checkpoints S2 a S5 aprovados
 
-S2: catálogos de riscos/controles, dimensões e avaliação ilustrativa configurável, vínculos humanos por caso, edição de planos e encerramento sujeito a revisão distinta. Laboratório sintético independente e métricas de supervisão também estão em implementação. Não declarar esses itens aprovados antes da integração e da homologação.
+- **S2 · `4dfb5b5`:** catálogos versionados de riscos e controles, vínculos por caso, dimensões/perguntas/pesos ilustrativos, avaliações com evidências e lacunas; edição de planos e encerramento com revisão separada. Controle de concorrência impede decidir sobre versões antigas. Laboratório com gabarito manual independente (8 contratos, TP2/FP0/FN0/TN6 para a regra primária) e supervisão distinguindo modelo real/síntese local.
+- **S3 · `7a86178`:** login local opcional, permissões no servidor, identidade canônica na auditoria e segregação entre qualificador/revisor e executor/aprovador. Sessões expiram/revogam; usuários/senhas só foram provisionados em ambientes temporários de teste. Sem configuração, o modo demonstração permanece autodeclarado. Não implementa SSO corporativo.
+- **S4 · `5c8958a`:** anexos sintéticos imutáveis em BLOBs SQLite com cobertura/hash verificados; pacote de auditoria v2 completo e compatibilidade v1 sem anexos; relatórios compilados de afirmações já revisadas com fontes preservadas e aprovação por pessoa distinta. Nenhuma nova chamada ao modelo para compilar relatórios.
+- **S5 · `74e512e`:** segunda regra (contato compartilhado entre fornecedores), relações navegáveis, tendências mensais, casos semelhantes e cenários ilustrativos sem alterar avaliação vigente; ingestão sintética recorrente opcional por pasta, com origem, idempotência, validação atômica e falhas explícitas. Nenhum monitor foi instalado nem fonte real conectada.
+
+Esses checkpoints passaram pelos comandos canônicos, testes de persistência, jornadas desktop/celular e revisões independentes dos trechos relevantes. IA Apple real validada com afirmações/fonte estruturadas, inclusive para ambas as regras em S5, contrato `elo-dossier-v4`. Validação de referências não prova a sustentação semântica; análise humana continua necessária. A numeração de checkpoints não declara realizada a sprint de piloto externo.
+
+## S6 · aprovado no escopo local
+
+Consulta ao assistente sobre o caso selecionado: pergunta e fontes são dados, modelo sem ferramentas de decisão, citações por afirmação, abstenção explícita, histórico auditado e fontes preservadas. Modo local é busca por palavras identificada; modo real usa provedor configurado. Sessão é verificada antes da chamada e na gravação, fontes alteradas exigem nova consulta, respostas prontas enviadas pelo cliente não são aceitas. Limites: até três planos/trechos de 700 caracteres, 200 consultas no ambiente, arquivos não enviados ao modelo.
+
+Backup e restauração locais verificam uma cópia privada, com origem somente leitura e destino novo publicado atomicamente, sem sobrescrita. Testes confirmam origem preservada, recuperação exata de anexos/relatórios/consultas, corrupção recusada e consistência com escrita concorrente. Configuração de contas e sessões não faz parte do banco. Procedimentos em [operations.md](operations.md).
+
+Revisões independentes: backend/segurança, contratos de IA e DBA confirmaram autorização transacional, controle de versão, fontes e operação de cópia sem bloqueadores no escopo local. O orquestrador conferiu a implementação de backup e a mudança de guia Swift que permite abstenção; o binário Apple foi recompilado. Revisão de interface confirmou componentes PDS, fontes e jornadas reais em desktop/celular. Não constitui certificação de produção.
+
+Verificação final de backend: **116 testes aprovados**. A rodada canônica também aprovou build, E2E desktop/celular e autenticação; o teste adicional posterior confirmou recuperação de relatórios e consultas. Rodada final com **Apple Foundation Models real aprovada**: dossiês das duas regras e assistente com fonte RSK-001; 40 eventos com cadeia íntegra, persistência idêntica após reinício e registros de negócio inalterados pelas consultas. PDS 4.10.1 e Porsche Next efetivamente renderizada verificados em desktop/celular. Evidências: `result-local.json`, `result-real.json`, `result-auth.json`, `typography.jsonl` e capturas, incluindo `mobile-assistant.png`.
+
+Medição S6 em banco temporário: 2.000 contratos, 1.999 casos, 40 leituras com concorrência 4; detecção primária 0,100 s e secundária 0,129 s, leitura p95 0,463 s e máximo 0,484 s. Zero erros, trilha íntegra e snapshot inalterado pelas leituras. Escopo de domínio/SQLite, sem IA, anexos, HTTP ou renderização; limite provisório de 2 s atendido. Não mede carga sustentada nem certifica capacidade do piloto. Evidência com hashes do código em `performance-current.json`. Evidências em `output/validation/`, regeneradas por testes isolados. O banco manual não foi usado para testes. A aplicação de uso manual é reiniciada ao concluir para carregar o código atualizado, sem resetar seus registros.
+
+## Dependências para o piloto real
+
+O usuário confirmou **provedor de login, primeira fonte autorizada e hospedagem a definir**. Também faltam metodologia oficial de maturidade, metas de volume/concorrência/disponibilidade e homologação no ambiente escolhido. O desenvolvimento local preserva todo o backlog; não certifica produto corporativo completo, conformidade, carga sustentada ou integração real. Não houve GitHub, publicação externa, contas reais ou envio a terceiros.
 
 ---
 

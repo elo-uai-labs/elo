@@ -669,6 +669,64 @@ async function runInsights(browser, pageErrors) {
   await mobile.close();
 }
 
+async function runAssistant(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto(`${baseUrl}/?case_id=ELO-1042#inteligencia`);
+  const snapshot = async () => (await page.request.get(`${baseUrl}/api/state?case_id=ELO-1042`)).json();
+  const before = await snapshot();
+  let form = page.getByTestId('assistant-form');
+  await form.getByLabel('Pergunta sobre este caso').fill('Qual é o risco vigente deste caso?');
+  await form.getByLabel('Responsável pela consulta').fill('Consultora Demo');
+  await page.route('**/api/assistant/query', async (route) => {
+    await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'As fontes mudaram durante a consulta. Revise o caso e faça uma nova pergunta.' }) });
+  }, { times: 1 });
+  await form.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+  await page.getByText('As fontes mudaram durante a consulta. Revise o caso e faça uma nova pergunta.', { exact: true }).waitFor();
+  assert.equal(await form.getByLabel('Pergunta sobre este caso').inputValue(), 'Qual é o risco vigente deste caso?');
+  assert.equal((await snapshot()).assistant_queries.length, 0);
+  await form.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+  await page.getByTestId('assistant-ASK-001').getByTestId('assistant-claims').getByText('Fontes: RSK-001', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Consultar fontes preservadas · ASK-001', exact: true }).click();
+  await page.getByTestId('assistant-ASK-001').getByText('RSK-001 · Risco vigente', { exact: true }).waitFor();
+  form = page.getByTestId('assistant-form');
+  await form.getByLabel('Pergunta sobre este caso').fill('Astronomia galáxias desconhecidas?');
+  await form.getByLabel('Responsável pela consulta').fill('Consultora Demo');
+  await form.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+  await page.getByTestId('assistant-ASK-002').getByText('Sem resposta sustentada pelas fontes', { exact: true }).waitFor();
+  if (aiMode === 'real') {
+    form = page.getByTestId('assistant-form');
+    await form.getByLabel('Pergunta sobre este caso').fill('Qual é a exposição vigente do risco deste caso?');
+    await form.getByLabel('Responsável pela consulta').fill('Consultora IA Demo');
+    await choose(page.locator('#assistant-mode'), 'IA real (requer configuração)');
+    await form.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+    await page.getByTestId('assistant-ASK-003').waitFor({ timeout: 120000 });
+    const response = (await snapshot()).assistant_queries.at(-1);
+    assert.equal(response.mode, 'real');
+    assert.equal(response.abstained, false);
+    assert.ok(response.claims.some((claim) => claim.source_ids.includes('RSK-001')));
+    const rendered = await page.getByTestId('assistant-ASK-003').getByTestId('assistant-claims').locator('p-text-list-item').allTextContents();
+    response.claims.forEach((claim, index) => claim.source_ids.forEach((id) => assert.ok(rendered[index].includes(id))));
+  }
+  const after = await snapshot();
+  for (const key of ['cases', 'risks', 'dimensions', 'actions', 'attachments', 'reports', 'assessments', 'scenarios', 'dataset']) assert.deepEqual(after[key], before[key], `Consulta não altera ${key}`);
+  assert.equal(after.assistant_queries[1].abstained, true);
+  await page.getByTestId('assistant-ASK-002').scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-assistant.png') });
+  await page.goto(`${baseUrl}/?case_id=ELO-2001#inteligencia`);
+  assert.equal(await page.getByTestId('assistant-ASK-001').count(), 0, 'Histórico restrito ao caso selecionado');
+  await page.close();
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  mobile.on('pageerror', (error) => pageErrors.push(error.message));
+  await mobile.goto(`${baseUrl}/?case_id=ELO-1042#inteligencia`);
+  await mobile.getByTestId('assistant-ASK-001').scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await mobile.screenshot({ path: path.join(output, 'mobile-assistant.png') });
+  await mobile.close();
+}
+
 async function main() {
   const response = await fetch(new URL('/api/state', baseUrl));
   assert.ok(response.ok, 'O servidor local do Elo precisa estar em execução.');
@@ -684,6 +742,7 @@ async function main() {
     await runExpanded(browser, pageErrors);
     await runGovernance(browser, pageErrors);
     await runInsights(browser, pageErrors);
+    await runAssistant(browser, pageErrors);
     assert.deepEqual(pageErrors, []);
     console.log('Elo: jornada executável e navegação móvel verificadas com Playwright.');
   } finally {

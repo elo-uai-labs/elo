@@ -6,7 +6,7 @@ Referência: **Elo · Product Vision e definição técnica**, Ana Ju, 18/11/202
 
 Entregar uma plataforma para a 2ª Linha de Defesa acompanhar um sinal desde sua origem até uma decisão fundamentada, seus impactos em risco e maturidade e a execução do tratamento. Os quatro módulos compartilham registros e histórico. IA organiza e explica evidências; decisões de qualificação, impacto e encerramento pertencem a pessoas.
 
-A stack existente é Vite/JavaScript, Porsche Design System **4.10.1**, Python e SQLite. Manter dados sintéticos e execução local. Não publicar no GitHub ou expor o servidor sem nova instrução. Não usar `data/elo.sqlite3` em testes. No modo existente, pessoas são autodeclaradas; o módulo opcional de identidades locais foi implementado e testado isoladamente, e sua integração está em andamento, ainda sem aceite completo.
+A stack existente é Vite/JavaScript, Porsche Design System **4.10.1**, Python e SQLite. Manter dados sintéticos e execução local. Não publicar no GitHub ou expor o servidor sem nova instrução. Não usar `data/elo.sqlite3` em testes. O modo demonstrativo mantém pessoas autodeclaradas. O modo opcional de autenticação local está integrado e aprovado no checkpoint S3, com autorização transacional e segregação; não equivale a identidade corporativa homologada.
 
 O desenvolvimento completo inclui P0, P1 e P2 abaixo. Uma sprint concluída não significa produto completo. **O usuário escolheu priorizar piloto com usuários reais e integrações autorizadas.** Isso antecipa identidade, permissões no backend, aprovador independente, evidências protegidas e exportação verificável, antes de funcionalidades avançadas de P2. O ambiente atual continua local/sintético até haver condições e autorização para o piloto. **O usuário confirmou login/provedor de identidade, fonte inicial e hospedagem como “a definir”**; não há uma resposta pendente sobre esses três itens. Integrações autorizadas e metodologia oficial dependem da CAIXA; podem ter contratos e adaptadores preparados localmente, mas não podem ser declaradas operacionais com dados inventados.
 
@@ -19,55 +19,55 @@ O desenvolvimento completo inclui P0, P1 e P2 abaixo. Uma sprint concluída não
 - **Dependência externa:** aceite depende de acesso, metodologia ou decisão externa; registrar separadamente o que pode ser desenvolvido localmente.
 - **Aprovado no checkpoint:** evidência do escopo e versão especificados; não estende o aceite automaticamente a mudanças posteriores nem ao produto inteiro.
 
-Checkpoint atual: **S1 aprovado em `fb98394` e S2 aprovado em `4dfb5b5`, commits somente locais**. O orquestrador confirmou a jornada S2 com submissão em desktop/celular e dossiê v3 por IA real. A correção da associação estruturada de fontes resolveu a falha 502 anterior, e a repetição E2E passou. S3 está em integração; provedor, fonte real e hospedagem continuam a definir. Não há conclusão do produto completo nem do piloto real.
+Checkpoint atual: **S1 `fb98394`, S2 `4dfb5b5`, S3 `7a86178`, S4 `5c8958a` e S5 `74e512e` aprovados, somente locais**. S6 (consulta governada e backup/restauração) aprovado localmente: 116 testes backend, jornadas canônicas/autenticadas e IA Apple real; evidências em `entrega.md`. A numeração dos checkpoints descreve entregas incrementais executadas e **não equivale à numeração das sprints planejadas abaixo**: em particular, checkpoint S5 não significa realização da sprint de piloto externo. Login corporativo, fonte real e hospedagem permanecem a definir. Produto completo e piloto real não estão concluídos.
 
 ## Matriz P0 · demonstração integrada
 
 | ID | Requisito e aceite observável | Estado atual e lacuna | Sprint / evidência necessária |
 | --- | --- | --- | --- |
 | P0-01 | Carregar empregados, fornecedores e contratos sintéticos relacionados; padrão positivo conhecido | Aprovado S1: importação incremental e validação atômica | S1: testes de entrada válida, IDs duplicados e referências inválidas; revalidar alterações posteriores |
-| P0-02 | Regra executável identifica coincidência entre fornecedor e aprovador; resultado explica critérios e versão | Aprovado S1: múltiplos casos e resultado sem novos indícios | S1: positivos, negativos, repetição e regra visível; laboratório S4 também testado |
-| P0-03 | Dossiê com IA real e fontes; modelo/prompt registrados; erro não disfarçado de síntese local | V3 aprovado no E2E real de S2 após correção da associação estruturada | IDs são apresentados ao lado de cada afirmação; validação não prova sustentação semântica de todos os fatos |
-| P0-04 | Analista aceita, ajusta ou rejeita; descarta, monitora ou qualifica; responsável e justificativa obrigatórios | Existente; identidade autodeclarada | S1: decisões independentes por caso e proteção contra versão de dossiê não revisada; S3: identidade autenticada |
+| P0-02 | Regra executável identifica coincidência entre fornecedor e aprovador; resultado explica critérios e versão | Duas regras determinísticas aprovadas no checkpoint S5: aprovador e cadastro compartilhado entre fornecedores | Versões, positivos/negativos, ausência de sinais e repetição; indício não prova culpa |
+| P0-03 | Dossiê com IA real e fontes; modelo/prompt registrados; erro não disfarçado de síntese local | Dossiê estruturado v3/v4 com IA real aprovado até checkpoint S6 | Fontes por afirmação e metadados preservados; associação não prova sustentação semântica |
+| P0-04 | Analista aceita, ajusta ou rejeita; descarta, monitora ou qualifica; responsável e justificativa obrigatórios | Decisões por caso e identidade local autenticada aprovadas S3 | Justificativa, revisão de dossiê e ator canônico; identidade corporativa a definir |
 | P0-05 | Fragilidade cria proposta fundamentada de revisão do risco, sem alteração automática | Aprovado S2: catálogos, vínculos, controle de versão e jornada na interface | Teste impede reduzir risco Crítica após sinal adverso; propostas obsoletas rejeitadas |
 | P0-06 | Fragilidade sinaliza dimensão e proposta de revisão humana, com metodologia ilustrativa configurável | Aprovado S2: perguntas/pesos, evidências, lacunas e avaliação versionada | Cálculo e histórico demonstráveis; metodologia continua ilustrativa |
-| P0-07 | Risco e maturidade apresentados juntos; aprovação ou recusa independente com auditoria | Existente | S1: aprovar um e recusar outro, sem decisão cruzada entre casos |
-| P0-08 | Recomendação e plano com responsável, prazo, status e evidência | Aprovado S2: edição, solicitação e revisão separada de encerramento; evidência textual; anexos pendentes | S3: homologar identidade e anexos; nomes diferentes ainda não equivalem a identidades autenticadas |
+| P0-07 | Risco e maturidade apresentados juntos; aprovação ou recusa independente com auditoria | Impactos separados e revisor autenticado distinto do qualificador aprovados S3 | Versões obsoletas rejeitadas, inclusive administrador sem exceção de segregação |
+| P0-08 | Recomendação e plano com responsável, prazo, status e evidência | Planos, encerramento independente e anexos protegidos aprovados S4 | Arquivos imutáveis, limites e snapshot de evidências no encerramento |
 | P0-09 | Indicadores refletem alertas, riscos por criticidade, pendências, atrasos e avaliações | Agregação de casos aprovada S1; novos catálogos/avaliações aprovados no checkpoint S2 | Totais reproduzíveis a partir dos registros, inclusive zero casos |
-| P0-10 | Auditoria persistida só de inclusão, com usuário, data, ação, registros e cadeia verificável | Existente com hashes e transação SQLite | S1: compatibilidade com banco anterior e detecção de adulteração; S4: pacote verificável fora da aplicação |
+| P0-10 | Auditoria persistida só de inclusão, com usuário, data, ação, registros e cadeia verificável | Auditoria transacional e origem de identidade aprovadas S3; BLOBs e pacote v2 aprovados S4 | Hash verifica consistência local; não prova autoria externa ou resistência a administrador |
 | P0-11 | Sugestão, decisão final e justificativa lado a lado | Existente | S1: seleção correta por caso e persistência após reiniciar |
-| P0-12 | Quatro telas conectadas, responsivas e com selo de estado real | Aprovado no checkpoint S2 desktop/celular; revalidar alterações de S3 | Playwright, teclado, PDS hidratado, Porsche Next e glifos webfont reais |
+| P0-12 | Quatro telas conectadas, responsivas e com selo de estado real | Jornadas desktop/celular aprovadas até checkpoint S6 | PDS, fontes e glifos oficiais; testes por checkpoint em bancos temporários |
 | P0-13 | Relações preservam origem, autor e momento; usuário não copia informações entre módulos | Aprovado S2: IDs, revisões, vínculos e navegação entre registros | Risco → controle → caso → avaliação → recomendação → ação → decisão/evento |
-| P0-14 | Jornada inteira executa sem resultados estáticos apresentados como operacionais | Aprovado no checkpoint S2 com IA real; revalidar S3 | Banco temporário conhecido, detecção, IA real, discordância, impactos, plano, histórico e reinício |
+| P0-14 | Jornada inteira executa sem resultados estáticos apresentados como operacionais | Jornada com IA real aprovada até S6, incluindo consulta e recuperação local | Nenhum ambiente corporativo ou escala produtiva homologado |
 
 ## Matriz P1 · evolução e piloto
 
 | ID | Requisito e aceite observável | Estado atual | Dependência / sprint |
 | --- | --- | --- | --- |
-| P1-01 | Múltiplas tipologias de alertas, cada regra com versão, parâmetros e explicação | Planejado; só vínculo cadastral v1 existente | S4; casos positivos/negativos por tipologia, sem atribuição de culpa |
+| P1-01 | Múltiplas tipologias de alertas, cada regra com versão, parâmetros e explicação | Duas tipologias executáveis aprovadas S5 | Regra de aprovador e regra de fornecedores compartilhando código; parâmetros determinísticos explícitos |
 | P1-02 | Integrações reais autorizadas, com contrato de dados, origem, reconciliação, erro e repetição segura | Dependência externa | S5; autorização, credenciais, amostra e contrato fornecidos pelo titular; adaptadores sintéticos podem anteceder acesso |
 | P1-03 | Metodologia oficial de maturidade da CAIXA com versões e rastreabilidade | Dependência externa | S2 prepara motor configurável; S5 aplica metodologia fornecida e homologa resultados |
-| P1-04 | Perfis/permissões no backend, segregação e identidade verificável | Módulo opcional local implementado, 8 testes isolados aprovados; integração servidor/interface em andamento; provedor real a definir | S3; `docs/access.md`; não há conta padrão nem usuários reais provisionados |
-| P1-05 | Relatórios gerenciais com IA; cada frase factual ligada à evidência | Planejado | S4; contrato de afirmações/citações, validação de referências e revisão humana antes da versão final |
-| P1-06 | Pacotes completos e verificáveis de auditoria | Exportação JSON de estado/eventos/manifesto e verificador aprovados S1; não contém anexos ainda inexistentes | S4: hashes demonstram consistência, sem assinatura/autoria externa ou checkpoint independente |
-| P1-07 | Painel de supervisão: concordância, discordância/motivos e alerta de possível aprovação automática | Módulo implementado, 3 testes aprovados e interface no checkpoint S2 | S4: denominadores real/local separados, amostra vazia e heurística explícita; filtros avançados pendentes |
-| P1-08 | Laboratório sintético com gabarito e medição de acertos/falsos alarmes | Implementado, 5 testes aprovados; gabarito manual independente com 8 contratos | S4: TP2/FP0/FN0/TN6 no fixture v1; mutação do detector confirma contabilização de FP/FN; não estima desempenho real |
+| P1-04 | Perfis/permissões no backend, segregação e identidade verificável | Autenticação local opcional e permissões integradas aprovadas S3 | Provedor corporativo a definir; sem contas padrão, sem SSO homologado |
+| P1-05 | Relatórios gerenciais com IA; cada frase factual ligada à evidência | Relatório governado aprovado S4: reutiliza claims de dossiês revisados | Não faz nova chamada de IA; preserva fontes, modelo, prompt, ressalvas e decisão humana; revisão independente e CAS |
+| P1-06 | Pacotes completos e verificáveis de auditoria | Pacote v2 com estado, eventos, manifesto e bytes dos anexos aprovado S4 | Verificador externo à aplicação, cobertura exata e compatibilidade v1 sem arquivos; sem assinatura externa |
+| P1-07 | Painel de supervisão: concordância, discordância/motivos e alerta de possível aprovação automática | Supervisão implementada e integrada; proveniência de identidade corrigida S3 | Denominadores real/local e históricos separados; heurística não prova automação; filtros avançados não implementados |
+| P1-08 | Laboratório sintético com gabarito e medição de acertos/falsos alarmes | Laboratório sintético reproduzível implementado; gabarito independente e métricas por regra | TP/FP/FN/TN e denominadores explícitos; testes alteram resultados para provar contagem; não estima desempenho real |
 | P1-09 | GRC completo: criar/editar riscos, controles, vínculos, tratamento e revisões | Aprovado no checkpoint local S2 | Entidades identificáveis, histórico, arquivamento preservando relações e aprovação dos impactos |
 | P1-10 | Maturidade: dimensões, questionário, evidências, lacunas e avaliação versionada | Aprovado no checkpoint local S2 com metodologia ilustrativa | Resultado reproduzível; metodologia oficial continua dependência externa |
-| P1-11 | Tratamento: editar atribuição/prazo, anexar execução, solicitar e aprovar encerramento | Edição/encerramento aprovados S2; anexos e identidade integrada pendentes | S3: validação de arquivos, segregação autenticada e manutenção do histórico |
+| P1-11 | Tratamento: editar atribuição/prazo, anexar execução, solicitar e aprovar encerramento | Tratamento com anexos e segregação autenticada aprovado S4 | Validação e limites de arquivos, download protegido, transação BLOB+evento e encerramento independente |
 
 ## Matriz P2 · escala e evolução comercial
 
 | ID | Requisito e aceite observável | Estado inicial | Dependência / sprint |
 | --- | --- | --- | --- |
-| P2-01 | Integrações adicionais e monitoramento recorrente | Planejado / dependência externa para fontes reais | S6 após S3/S5; agenda, retomada, idempotência, falha visível e origem preservada |
-| P2-02 | Análise de vínculos e tendências, com critérios explicáveis | Planejado | S6 após S1/S2; conexões navegáveis, períodos comparáveis e ausência de inferência de culpa |
-| P2-03 | Simular cenários e impactos no risco sem alterar avaliação vigente | Planejado | S6 após S2; premissas versionadas, comparação e eventual proposta sujeita à decisão humana |
-| P2-04 | Memória institucional apresenta casos semelhantes já tratados | Planejado | S6 após S3; critérios de similaridade, fontes e controles de acesso; similaridade não impõe decisão |
-| P2-05 | Assistente conversacional com acesso governado aos dados | Planejado | S6 após S3/S4; recuperação com autorização no backend, citações, abstenção e resistência a instruções nos documentos |
-| P2-06 | Ampliação de casos de uso, dados e usuários | Planejado | S7; volume/concorrrência acordados, métricas de cauda/erros, recuperação, migração e testes de carga |
+| P2-01 | Integrações adicionais e monitoramento recorrente | Conector sintético por pasta e execução recorrente opcional aprovados S5; integrações reais externas | CLI explícita, idempotência e falha/repetição; nenhum agendamento instalado, nenhuma fonte real conectada |
+| P2-02 | Análise de vínculos e tendências, com critérios explicáveis | Vínculos e tendências explicáveis aprovados S5 | Critérios determinísticos, fontes e eventos de integração incluídos; não inferem culpa |
+| P2-03 | Simular cenários e impactos no risco sem alterar avaliação vigente | Cenários hipotéticos versionados aprovados S5 | CAS do risco, premissas e comparação; nenhuma alteração automática da avaliação vigente |
+| P2-04 | Memória institucional apresenta casos semelhantes já tratados | Memória de casos semelhantes implementada e aprovada S5 | Critério de similaridade explícito e acesso governado; similaridade não determina decisão |
+| P2-05 | Assistente conversacional com acesso governado aos dados | Consulta governada aprovada S6 em modos local e IA real | Fontes do caso, citações, abstenção, contexto versionado e arquivo auditado; sem ferramentas de decisão |
+| P2-06 | Ampliação de casos de uso, dados e usuários | Backup/restauração local aprovado S6; escala externa pendente | Destinos novos e verificados, origem somente leitura; volume, disponibilidade e infraestrutura ainda não definidos |
 
-## Ordem de execução e critérios entre sprints
+## Plano original de sprints e critérios entre etapas
 
 | Sprint | Jornada que deve terminar utilizável | Dependências e critério de passagem |
 | --- | --- | --- |
@@ -123,6 +123,16 @@ Revisão DBA e revisão v3 conferidas contra o commit `4dfb5b5`: `backend/domain
 
 S4: laboratório implementado sem acesso a `Store` ou ao banco manual, com versão e hash do fixture, denominadores explícitos, métricas nulas para amostra indefinida e resultados por contrato. Supervisão separa IA real/síntese local e usa heurística descritiva de cinco aceitações rápidas pelo mesmo responsável; não prova automação nem culpa. Exportação verifica consistência de hashes, sem alegar assinatura ou autoria externa.
 
-S3: `backend/access.py`, `backend/tests/test_access.py` e `docs/access.md` implementados. Oito testes isolados passaram, incluindo limite concorrente de tentativas, expiração/logout, limites de memória, permissões, atribuição e revisor de impacto distinto do qualificador. A revisão do módulo pelo orquestrador não encontrou bloqueador no escopo local. A integração está em andamento e ainda precisa de aceite de autenticação por rota, ator sobrescrito pelo servidor e autorização dentro da mesma transação da mutação. Não foi criado arquivo de contas do projeto; testes usam configurações temporárias. Provedor corporativo permanece **a definir**.
+Registro histórico anterior ao aceite S3: `backend/access.py`, `backend/tests/test_access.py` e `docs/access.md` implementados. Oito testes isolados passaram, incluindo limite concorrente de tentativas, expiração/logout, limites de memória, permissões, atribuição e revisor de impacto distinto do qualificador. A revisão do módulo pelo orquestrador não encontrou bloqueador no escopo local. A integração está em andamento e ainda precisa de aceite de autenticação por rota, ator sobrescrito pelo servidor e autorização dentro da mesma transação da mutação. Não foi criado arquivo de contas do projeto; testes usam configurações temporárias. Provedor corporativo permanece **a definir**.
 
-Próximo trabalho concreto: concluir integração S3 e verificar negativas HTTP/segregação e jornada autenticada; concluir evidências protegidas e demais requisitos pendentes, preservando o escopo P1/P2 completo.
+### Checkpoints S3 a S6 · estado atualizado
+
+S3 `7a86178`: autenticação local integrada com autorização dentro de `BEGIN IMMEDIATE`, ator canônico e metadados confiáveis de origem. Falhas de autorização não alteram estado ou auditoria. Histórico autodeclarado não é retroativamente autenticado. Revisão DBA conferida no commit; testes HTTP e jornada autenticada aprovados pelo orquestrador.
+
+S4 `5c8958a`: anexos em BLOB com metadados/evento na mesma transação, imutabilidade e cobertura exata no snapshot/export; relatórios preservam decisões e fontes revisadas. Provas concorrentes independentes confirmaram limite de arquivos e uma única revisão de relatório. Pacote v2 verifica bytes, tamanho e hashes, mantendo exportações v1 sem anexos.
+
+S5 `74e512e`: segunda tipologia, laboratório ampliado, vínculos/tendências, memória, cenários e conector sintético por pasta. Detecção por regra preserva snapshots anteriores; novo fornecedor pode gerar sinal em contrato antigo. Importação repetida é impedida transacionalmente. Comando de integração não é exposto por HTTP; execução é explicitamente local e nenhuma tarefa foi agendada. Revisão DBA conferida nos hashes do commit, sem bloqueador no escopo verificado.
+
+S6 aprovado localmente: consulta por fontes selecionadas do caso, resposta local ou modelo real, abstenção e arquivo auditado; proíbe gravação de decisões pela IA. Backup/restauração exige origem/destino explícitos, verifica a cópia e publica somente em caminho novo. Testes usam bancos temporários. Seis testes específicos de backup passaram, incluindo escrita concorrente e corrida de publicação. Revisão independente e aceite final registrados pelo orquestrador: 116 testes backend, E2E local/real, autenticação, desktop/celular, persistência e recuperação verificados.
+
+Próximo trabalho dependente de definição externa: piloto corporativo exige provedor, fonte e hospedagem definidos/autorizados, metodologia oficial e metas operacionais acordadas. A entrega local não substitui essas dependências nem comprova produto completo.

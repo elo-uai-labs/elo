@@ -11,7 +11,7 @@ struct Claim {
 
 @Generable
 struct Summary {
-    @Guide(description: "De uma a três afirmações factuais curtas com fontes individuais")
+    @Guide(description: "Afirmações factuais curtas com fontes individuais; siga a quantidade solicitada, podendo ser vazio quando não houver suporte nas fontes")
     var claims: [Claim]
     @Guide(description: "Limitação curta: o vínculo isolado não comprova irregularidade; sem novos fatos")
     var limitations: String

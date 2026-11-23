@@ -19,11 +19,11 @@ import governance
 import reporting
 from access import AccessService
 from audit_export import build_export
-from domain import Store, WorkflowError, choice, require
+from domain import Store, WorkflowError, choice, require, required
 
 ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "elo_session"
-COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", *governance.COMMANDS, *reporting.COMMANDS}
+COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", "assistant/query", *governance.COMMANDS, *reporting.COMMANDS}
 
 
 class EloServer(ThreadingHTTPServer):
@@ -51,6 +51,21 @@ class EloServer(ThreadingHTTPServer):
             if actor is not None:
                 generated["actor"] = actor
             return self.store.apply("dossier", generated, authorize=authorize)
+        finally:
+            self.dossier_lock.release()
+
+
+    def consult(self, data, authorize=None):
+        import consultation
+        actor = required(data, "actor", 80)
+        require(self.dossier_lock.acquire(blocking=False), "Já existe uma síntese ou consulta em andamento.")
+        try:
+            snapshot = self.store.read(data.get("case_id"))
+            if authorize:
+                authorize(snapshot)
+            context = consultation.prepare(snapshot, data)
+            generated = consultation.answer(context)
+            return self.store.apply("assistant/record", {"actor": actor, "case_id": context["case_id"], "answer": generated}, authorize=authorize)
         finally:
             self.dossier_lock.release()
 
@@ -246,7 +261,9 @@ class Handler(BaseHTTPRequestHandler):
             if user:
                 data["actor"] = user["id"]
             authorize = self.authorizer(command, data)
-            if command == "dossier":
+            if command == "assistant/query":
+                state = self.server.consult(data, authorize=authorize)
+            elif command == "dossier":
                 state = self.server.summarize(choice(data, "mode", ("local", "real")), data.get("case_id"),
                                               actor=user["id"] if user else None, authorize=authorize)
             else:

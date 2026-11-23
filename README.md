@@ -32,18 +32,18 @@ npm run setup:ai
 npm run dev
 ```
 
-O executável é compilado do código versionável `backend/on_device.swift` para `.local/elo-on-device`, detectado automaticamente ao iniciar. Ao atualizar uma instalação anterior, execute novamente `npm run setup:ai`: o contrato `elo-dossier-v3` usa afirmações com fontes individuais, limitações e sugestão separadas. No dossiê, selecione **IA real**. A disponibilidade do modelo é verificada na geração; falhas aparecem na interface e não são substituídas silenciosamente pela síntese local.
+O executável é compilado do código versionável `backend/on_device.swift` para `.local/elo-on-device`, detectado automaticamente ao iniciar. Ao atualizar uma instalação anterior, execute novamente `npm run setup:ai`: o contrato `elo-dossier-v4` usa afirmações com fontes individuais, limitações e sugestão separadas. No dossiê, selecione **IA real**. A disponibilidade do modelo é verificada na geração; falhas aparecem na interface e não são substituídas silenciosamente pela síntese local.
 
 Alternativamente, configure `OPENAI_API_KEY` e `ELO_MODEL` no ambiente ou em `.env` (ignorado pelo Git). Somente o backend usa as credenciais. A integração Apple tem preferência quando o executável local existe; para selecionar explicitamente OpenAI, execute sem esse binário. A opção **Síntese local** é determinística e identificada como tal, sem chamada a um modelo.
 
 ## Jornada disponível
 
 1. **Visão geral:** indicadores calculados do estado persistido e navegação entre etapas.
-2. **Inteligência:** executar a regra na base sintética, consultar as evidências do caso, gerar o dossiê e registrar decisão e justificativa humana.
-3. **Risco e maturidade:** aprovar ou recusar separadamente os impactos propostos por uma fragilidade qualificada.
-4. **Plano e auditoria:** criar plano com responsável e prazo, atualizar andamento e evidência textual, consultar eventos e verificar a integridade da trilha.
+2. **Inteligência:** executar duas regras na base sintética, consultar fontes e anexos, gerar dossiês, registrar decisões humanas e consultar o assistente com fontes do caso.
+3. **Risco e maturidade:** gerenciar riscos, controles, avaliações e lacunas; aprovar impactos separadamente e simular cenários sem alterar o risco vigente.
+4. **Plano e auditoria:** atribuir planos, anexar execução, solicitar encerramento para revisão independente, revisar relatórios citados e exportar auditoria com arquivos.
 
-A base inicial contém o caso sintético **ELO-1042**. É possível importar novos registros fictícios, executar a detecção incremental e selecionar casos independentes. A importação acrescenta dados sem substituir registros ou decisões anteriores. O desenvolvimento completo está organizado na [matriz do Product Vision](docs/product-vision.md), com prioridade para um piloto com usuários reais e integrações autorizadas. Até definir identidade, fonte autorizada e hospedagem, a execução continua local e sintética. Nomes de responsáveis são autodeclarados.
+A base inicial contém o caso sintético **ELO-1042**. É possível importar novos registros fictícios, executar a detecção incremental e selecionar casos independentes. A importação acrescenta dados sem substituir registros ou decisões anteriores. O desenvolvimento completo está organizado na [matriz do Product Vision](docs/product-vision.md), com prioridade para um piloto com usuários reais e integrações autorizadas. Até definir identidade, fonte autorizada e hospedagem, a execução continua local e sintética. Sem autenticação configurada, nomes são autodeclarados; o modo opcional com contas locais aplica permissões e segregação no backend. Consulte [acesso local](docs/access.md).
 
 ## Testes
 
@@ -52,7 +52,7 @@ npx playwright install chromium
 npm test
 ```
 
-`npm test` executa testes Python, gera o build, inicia um servidor isolado com banco temporário, percorre a jornada no Playwright em desktop e celular e reinicia o processo para comparar a persistência. Nunca reseta o banco usado manualmente. Evidências ficam em `output/validation/`.
+`npm test` executa testes Python, gera o build, inicia um servidor isolado com banco temporário, percorre a jornada no Playwright em desktop e celular e reinicia o processo para comparar a persistência. Inclui também a jornada autenticada com contas e senhas sintéticas temporárias. Nunca reseta o banco usado manualmente. Evidências ficam em `output/validation/`.
 
 Para repetir a jornada com modelo real configurado:
 
@@ -83,7 +83,7 @@ Em Plano e auditoria, **Exportar pacote de auditoria** baixa o estado completo e
 python3 backend/audit_export.py /caminho/elo-auditoria.json
 ```
 
-O verificador recalcula hashes, sequência, encadeamento e estado final. Isso comprova consistência interna; não substitui assinatura digital ou prova independente de autoria. O pacote contém todos os registros sintéticos, decisões, fontes, versões e planos persistidos.
+O verificador recalcula hashes, sequência, encadeamento e estado final. Isso comprova consistência interna; não substitui assinatura digital ou prova independente de autoria. O pacote v2 contém registros, decisões, fontes, versões, planos e bytes dos anexos persistidos; o verificador também confere cobertura e hash de cada arquivo. Pacotes históricos v1 sem anexos continuam aceitos.
 
 ## Catálogos, avaliação e supervisão
 
@@ -94,3 +94,15 @@ Na Inteligência, um analista pode revisar o risco e a dimensão associados ante
 O painel de supervisão separa concordância com IA real de concordância com síntese local e apresenta os motivos de discordância. Uma heurística explícita sinaliza cinco aceitações consecutivas em menos de dez segundos cada; o alerta exige análise humana e não demonstra aprovação automática.
 
 O laboratório sintético tem gabarito independente e versionado. Execute pela Central de inteligência ou com `npm run lab`. Resultados incluem TP/FP/FN/TN, precisão e recall com denominadores. A execução não cria casos nem altera a base do ambiente; desempenho no gabarito não estima resultados em dados reais.
+
+## Análises, assistência e operação
+
+A Central de inteligência apresenta relações entre registros, tendências mensais e até cinco casos decididos semelhantes, com critérios explícitos. Duas regras determinísticas tratam coincidência cadastral entre fornecedor/aprovador e contato compartilhado entre fornecedores distintos. Os sinais não comprovam irregularidade. O laboratório v1 mede somente a primeira regra; a segunda possui testes positivos e negativos próprios.
+
+O assistente responde perguntas sobre o **caso selecionado**, registra pergunta/resposta/fontes e pode se abster. O modo local é uma busca textual determinística; IA real usa o provedor configurado e o contrato `elo-assistant-v1`. O contexto é limitado e pode ser parcial; não inclui bytes de anexos nem outros casos. Citações verificam referência, não comprovam por si só a sustentação semântica. Nenhuma resposta executa decisões ou altera riscos. Consultas são auditadas e acessíveis aos perfis autenticados deste ambiente.
+
+Relatórios compilam afirmações de dossiês já revisados, com suas fontes preservadas e decisões humanas separadas, sem nova chamada de IA. A revisão exige pessoa distinta do autor quando o login está ativo. Evidências sintéticas TXT/PDF/PNG/JPEG ficam imutáveis no SQLite, com limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos; não são interpretadas pelo modelo.
+
+[Monitoramento sintético](docs/monitoring.md) descreve a ingestão recorrente opcional de uma pasta controlada, sem conectar fontes reais. [Operação e recuperação](docs/operations.md) descreve backup/restauração verificados para caminhos novos, sem sobrescrever a origem. Nenhum monitor, conta ou backup manual foi criado automaticamente.
+
+A base local não conclui o piloto corporativo: faltam provedor de identidade, fonte autorizada, hospedagem, metodologia oficial e metas de capacidade/homologação. Consulte o [registro de entrega](docs/entrega.md) para evidências e limites.

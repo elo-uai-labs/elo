@@ -20,7 +20,7 @@ from domain import WorkflowError
 
 ITERATIONS = 600_000
 ROLES = frozenset({'admin', 'analyst', 'reviewer', 'operator', 'auditor'})
-READS = frozenset({'read', 'state', 'audit/export', 'supervision', 'laboratory', 'people', 'session', 'evidence/download'})
+READS = frozenset({'read', 'state', 'audit/export', 'supervision', 'laboratory', 'people', 'session', 'evidence/download', 'assistant/query'})
 ANALYST = frozenset({'import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create'})
 REVIEWER = frozenset({'risk/save', 'control/save', 'dimension/save', 'catalog/archive',
                       'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review'})

@@ -66,7 +66,7 @@ function loginScreen() {
 }
 
 function permissionReason(endpoint, form) {
-  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'logout'].includes(endpoint)) return '';
+  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'logout'].includes(endpoint)) return '';
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
@@ -392,13 +392,36 @@ function detectionPanel() {
       <form class="form" data-endpoint="detect">${hidden('rule_id', rule.id)}<div class="actions"><p-button variant="${rule.id === 'contact-code-match' ? 'primary' : 'secondary'}" icon="none" data-testid="${rule.id === 'contact-code-match' ? 'detect' : 'detect-suppliers'}" type="submit"${!rule.pending_count ? ' disabled' : ''}>${rule.id === 'contact-code-match' ? 'Executar análise' : 'Analisar fornecedores relacionados'}</p-button></div></form></section>`).join('')}`);
 }
 
+function assistantPanel(current) {
+  const queries = (state.assistant_queries || []).filter((query) => query.case_id === current.id);
+  return panel('Assistente do caso', `<p-text>Consulte as fontes deste caso. As respostas não executam ações nem alteram decisões, riscos, maturidade ou planos. Arquivos anexados não são lidos.</p-text>
+    <form class="form" data-endpoint="assistant/query" data-testid="assistant-form">
+      ${hidden('case_id', current.id)}
+      <p-textarea id="assistant-question" name="question" label="Pergunta sobre este caso" max-length="800" required compact></p-textarea>
+      ${selectField('assistant-mode', 'mode', 'Modo da consulta', [['local', 'Consulta local por palavras (sem IA)'], ['real', 'IA real (requer configuração)']], 'local')}
+      ${field('assistant-actor', 'actor', 'Responsável pela consulta')}
+      <div class="actions"><p-button variant="secondary" icon="none" type="submit">Consultar fontes do caso</p-button></div>
+    </form>
+    ${queries.length ? [...queries].reverse().map((query) => `<section class="stack" data-testid="assistant-${escape(query.id)}">
+      <p-heading tag="h3" size="md">${escape(query.question)}</p-heading>
+      <p-text size="sm" color="contrast-high">${escape(query.id)} · ${escape(query.actor)} · ${query.mode === 'real' ? 'IA real' : 'Consulta local por palavras, sem IA'} · ${escape(query.model)}</p-text>
+      <p-text size="sm">Fontes capturadas em ${escape(query.captured_at)}. A resposta preserva esse retrato e pode não refletir alterações posteriores.</p-text>
+      ${query.abstained ? '<p-inline-notification state="info" heading="Sem resposta sustentada pelas fontes" description="Reformule a pergunta ou consulte os registros originais." dismiss-button="false"></p-inline-notification>' : `<p-text-list data-testid="assistant-claims">${query.claims.map((claim) => `<p-text-list-item><p-text>${escape(claim.text)}</p-text><p-text size="sm" color="contrast-high">Fontes: ${claim.source_ids.map(escape).join(', ')}</p-text></p-text-list-item>`).join('')}</p-text-list>`}
+      <p-text>Limitações: ${escape(query.limitations)}</p-text><p-text>Próxima verificação humana: ${escape(query.suggestion)}</p-text>
+      <p-text size="sm">${escape(query.scope)}${query.partial ? ' Contexto parcial: há trechos limitados ou planos fora desta consulta.' : ''}</p-text>
+      <p-accordion><p-heading slot="summary" tag="h4" size="sm">Consultar fontes preservadas · ${escape(query.id)}</p-heading>
+        <p-text-list>${query.sources.map((source) => `<p-text-list-item><div class="entry-content"><p-text weight="semibold">${escape(source.id)} · ${escape(source.source)}</p-text><p-text>${escape(source.detail)}</p-text>${source.truncated ? '<p-text size="sm">Trecho limitado a 700 caracteres.</p-text>' : ''}${source.revision ? `<p-text class="technical" size="xs">Revisão: ${escape(source.revision)}</p-text>` : ''}</div></p-text-list-item>`).join('')}</p-text-list>
+      </p-accordion>
+    </section>`).join('') : '<p-text size="sm">Nenhuma consulta registrada neste caso.</p-text>'}`);
+}
+
 function intelligence() {
   const title = heading('Central de inteligência', 'Revise o vínculo identificado, consulte as fontes e registre a decisão humana.');
   const current = state.case;
   if (!current) return `${title}<div class="grid">${detectionPanel()}<div class="stack">${datasetPanel()}${laboratoryPanel()}</div></div>`;
   const caseSummary = panel(`${escape(current.title || 'Possível conflito de interesses')} · ${escape(current.id)}`, '<p-text>O vínculo cadastral requer revisão humana. As evidências não demonstram, por si só, uma irregularidade.</p-text>', badge(current.status));
   return `${title}<div class="grid">
-    <div class="stack">${caseSummary}${dossierPanel(current.dossier, Boolean(current.decision))}${decisionPanel(current)}${caseLinks()}</div>
+    <div class="stack">${caseSummary}${dossierPanel(current.dossier, Boolean(current.decision))}${decisionPanel(current)}${caseLinks()}${assistantPanel(current)}</div>
     <div class="stack">${memoryPanel()}${evidenceList(current)}${detectionPanel()}${datasetPanel()}${laboratoryPanel()}</div>
   </div>`;
 }

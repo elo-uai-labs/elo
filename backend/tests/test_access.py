@@ -39,6 +39,11 @@ class AccessTest(unittest.TestCase):
             call()
         self.assertEqual(context.exception.status, status)
 
+    def test_consultation_readers_and_private_record(self):
+        for role in ('admin', 'analyst', 'reviewer', 'operator', 'auditor'):
+            self.service.authorize(self.user(role), 'assistant/query', {}, {})
+            self.assert_status(403, lambda: self.service.authorize(self.user(role), 'assistant/record', {}, {}))
+
     def test_password_parameters_and_fail_closed_config(self):
         self.assertEqual(self.record['iterations'], ITERATIONS)
         self.assertEqual(ITERATIONS, 600_000)

@@ -24,11 +24,11 @@ def configured():
     return bool(os.getenv("ELO_ON_DEVICE_BIN") or (os.getenv("OPENAI_API_KEY") and os.getenv("ELO_MODEL")))
 
 
-def verified_dossier(output, model, ids):
+def verified_dossier(output, model, ids, allow_empty=False):
     claims = output["claims"]
     limitations = output["limitations"].strip()
     suggestion = output["suggestion"].strip()
-    if not isinstance(claims, list) or not 1 <= len(claims) <= 6 or not limitations or not suggestion:
+    if not isinstance(claims, list) or not (0 if allow_empty else 1) <= len(claims) <= 6 or not limitations or not suggestion:
         raise ValueError("Invalid dossier shape")
     clean = []
     references = []
@@ -52,7 +52,7 @@ def verified_dossier(output, model, ids):
             "mode": "real", "model": model, "prompt_version": PROMPT_VERSION}
 
 
-def generate_on_device(binary, evidence, ids):
+def generate_on_device(binary, evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, question=None):
     citation_contract = (
         " Os únicos IDs de fontes permitidos são: " + ", ".join(ids) + ". "
         "Retorne de uma a seis afirmações factuais em claims, cada uma com text e source_ids. "
@@ -60,7 +60,11 @@ def generate_on_device(binary, evidence, ids):
         "Separe limitations (limitações da análise) e suggestion (próxima verificação humana). "
         "Não use nomes de pessoas ou tabelas como identificadores de fonte."
     )
-    payload = {"instructions": INSTRUCTIONS + citation_contract, "evidence": json.dumps(evidence, ensure_ascii=False)}
+    if allow_empty:
+        citation_contract = citation_contract.replace("de uma a seis", "de zero a seis")
+        citation_contract += " Se as fontes não responderem à pergunta, retorne claims vazio e explique a limitação; não invente fatos."
+    payload = {"instructions": instructions + citation_contract,
+               "evidence": json.dumps({"question": question, "sources": evidence} if question is not None else evidence, ensure_ascii=False)}
     environment = {name: os.environ[name] for name in ("HOME", "PATH", "TMPDIR", "LANG", "LC_ALL") if name in os.environ}
     deadline = time.monotonic() + 45
     try:
@@ -71,12 +75,12 @@ def generate_on_device(binary, evidence, ids):
             process = subprocess.run([binary], input=json.dumps(payload), capture_output=True, text=True, check=True, timeout=remaining, env=environment)
             try:
                 output = json.loads(process.stdout)
-                return verified_dossier(output, output["model"], ids)
+                return verified_dossier(output, output["model"], ids, allow_empty=allow_empty)
             except (ValueError, KeyError, TypeError, AttributeError):
                 if attempt:
                     raise
-                # A model can list a source it forgot to cite. Regenerate once;
-                # never patch its factual text or silently drop invalid references.
+                # Regenerate invalid structured claims once; never patch factual
+                # text or silently drop invalid references.
                 payload["instructions"] += (
                     " Sua resposta anterior foi rejeitada pela validação de formato ou referências. "
                     "Gere uma nova síntese curta com source_ids próprios para cada afirmação e declare somente "
@@ -108,9 +112,18 @@ def generate(evidence, mode, rule_id="contact-code-match"):
         }
         return {**verified_dossier(output, "regra-local", ids), "mode": "local"}
 
+    return generate_real(evidence, ids)
 
+
+def generate_grounded(evidence, instructions, question):
+    return generate_real(evidence, [item["id"] for item in evidence], instructions=instructions,
+                         allow_empty=True, question=question)
+
+
+def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, question=None):
     if binary := os.getenv("ELO_ON_DEVICE_BIN"):
-        return generate_on_device(binary, evidence, ids)
+        return generate_on_device(binary, evidence, ids, instructions=instructions,
+                                  allow_empty=allow_empty, question=question)
     if not configured():
         raise WorkflowError("Configure o modelo local ou OPENAI_API_KEY e ELO_MODEL para usar IA real.", 503)
     schema = {
@@ -126,8 +139,8 @@ def generate(evidence, mode, rule_id="contact-code-match"):
     request = Request(
         "https://api.openai.com/v1/responses",
         data=json.dumps({
-            "model": os.environ["ELO_MODEL"], "store": False, "instructions": INSTRUCTIONS,
-            "input": json.dumps(evidence, ensure_ascii=False), "max_output_tokens": 1800,
+            "model": os.environ["ELO_MODEL"], "store": False, "instructions": instructions,
+            "input": json.dumps({"question": question, "sources": evidence} if question is not None else evidence, ensure_ascii=False), "max_output_tokens": 1800,
             "text": {"format": {"type": "json_schema", "name": "dossier", "strict": True, "schema": schema}},
         }).encode(),
         headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"]},
@@ -137,6 +150,6 @@ def generate(evidence, mode, rule_id="contact-code-match"):
             result = json.load(response)
         output = next(part["text"] for item in result["output"] if item["type"] == "message"
                       for part in item["content"] if part["type"] == "output_text")
-        return verified_dossier(json.loads(output), result["model"], ids)
+        return verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty)
     except (URLError, TimeoutError, ValueError, KeyError, TypeError, AttributeError, StopIteration) as error:
         raise WorkflowError("A síntese por IA não foi concluída. Confira a configuração e tente novamente.", 502) from error

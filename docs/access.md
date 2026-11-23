@@ -30,8 +30,10 @@ Configuração é carregada no início. Para desativar uma conta (`active: false
 | `analyst` | Importar, detectar, gerar dossiê, decidir, vincular caso, criar plano/rascunho de relatório e anexar ao caso; executar/anexar aos planos atribuídos a seu ID |
 | `reviewer` | Catálogos, avaliações, impactos, editar plano, revisar encerramento/relatório e anexar ao caso |
 | `operator` | Registrar execução, anexar evidências e solicitar encerramento somente de planos atribuídos a seu ID |
-| `auditor` | Somente leitura |
+| `auditor` | Leitura e consultas auditadas ao assistente, sem alteração de registros de negócio |
 | `admin` | União das operações; continua sujeito a responsável atribuído e revisor distinto para impactos, encerramento e relatório |
+
+Analistas, revisores e administradores também podem registrar cenários ilustrativos sem alterar o risco vigente. Todos os perfis podem consultar o assistente: a sessão é validada antes da geração e novamente na transação de registro; o cliente não pode enviar uma resposta pronta. Fontes alteradas durante a geração exigem nova consulta. O endpoint interno de registro não é acessível por HTTP.
 
 Todos os perfis autenticados podem consultar os dados sintéticos deste ambiente e o diretório não secreto de pessoas (`id`, `name`, `roles`). O responsável de um novo plano ou edição deve ser um ID ativo com perfil `operator`, `analyst` ou `admin`. Registros históricos com nomes autodeclarados não são convertidos automaticamente em contas: um revisor deve atribuir um ID válido antes de o operador atualizar a execução. O servidor deve substituir o campo `actor` recebido pelo ID autenticado e nunca aceitar papéis enviados pelo cliente.
 
@@ -57,7 +59,7 @@ O arquivo de configuração é sensível mesmo contendo hashes. Não versionar, 
 
 ## Evidências e relatórios · integração S4
 
-Backend integrado e testes isolados/HTTP aprovados; homologação completa da interface S4 ainda pendente. Arquivos sintéticos TXT/PDF/PNG/JPEG usam limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos. Metadados e bytes são persistidos na mesma transação, com hash/contagem conferidos ao consultar ou exportar. Download é forçado como anexo, com nome gerado pelo sistema; o servidor não executa, renderiza, extrai texto ou envia esses bytes ao modelo. Verificar assinatura básica do formato não equivale a varredura antimalware.
+Backend e interface integrados, com testes HTTP e jornadas desktop/celular aprovados no checkpoint S4. Arquivos sintéticos TXT/PDF/PNG/JPEG usam limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos. Metadados e bytes são persistidos na mesma transação, com hash/contagem conferidos ao consultar ou exportar. Download é forçado como anexo, com nome gerado pelo sistema; o servidor não executa, renderiza, extrai texto ou envia esses bytes ao modelo. Verificar assinatura básica do formato não equivale a varredura antimalware.
 
 Relatórios são compilações identificadas de dossiês já revisados e decisões humanas, sem nova chamada de IA. Afirmações preservam fontes e suas cópias de origem, modelo/prompt, limitações e sugestão originais; quando a sugestão foi rejeitada, suas afirmações e sugestão ficam excluídas e a decisão humana permanece. Rascunhos exigem revisão explícita com justificativa e versão; uma vez aprovados ou recusados, não podem ser alterados.
 

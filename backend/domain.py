@@ -119,6 +119,7 @@ def normalize(state):
     state.setdefault("attachments", [])
     state.setdefault("scenarios", [])
     state.setdefault("integration_batches", [])
+    state.setdefault("assistant_queries", [])
     reporting.normalize(state)
     return governance.normalize(state)
 
@@ -202,6 +203,9 @@ def transition(state, command, data):
     normalize(state)
     import governance
     import reporting
+    if command == "assistant/record":
+        import consultation
+        return consultation.record(state, data)
     if command == "integration/import":
         import monitoring
         return monitoring.transition(state, data)

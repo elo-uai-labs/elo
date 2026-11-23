@@ -6,6 +6,8 @@ import threading
 import unittest
 from http.client import HTTPConnection
 from pathlib import Path
+from copy import deepcopy
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from domain import Store
@@ -85,6 +87,43 @@ class ServerTest(unittest.TestCase):
         package = json.loads(body)
         self.assertEqual(package["files"][0]["content_base64"], payload["content_base64"])
         self.assertEqual(self.request(path="/api/evidence/EVD-9999")[0], 404)
+
+    def test_assistant_ignores_forged_answer_and_cannot_change_business_state(self):
+        self.request("POST", "/api/detect", {})
+        before = self.store.read()
+        payload = {"actor": "Analista", "case_id": "ELO-1042", "mode": "local", "question": "Qual o risco vigente?",
+                   "answer": {"claims": [{"text": "Forged answer"}]}, "risk": {"level": "Crítica"}}
+        status, _, body = self.request("POST", "/api/assistant/query", payload)
+        self.assertEqual(status, 200)
+        state = json.loads(body)
+        self.assertEqual(len(state["assistant_queries"]), 1)
+        self.assertNotIn("Forged answer", json.dumps(state["assistant_queries"]))
+        for key in ("cases", "risks", "dimensions", "actions", "attachments"):
+            self.assertEqual(state[key], before[key])
+        self.assertEqual(state["audit"][-1]["action"], "Consulta ao assistente registrada")
+        self.assertEqual(self.request("POST", "/api/assistant/record", {"answer": "forged"})[0], 404)
+        self.assertEqual(len(self.store.read()["assistant_queries"]), 1)
+
+    def test_assistant_pre_call_cap_and_source_revision_conflict(self):
+        import consultation
+        self.request("POST", "/api/detect", {})
+        payload = {"actor": "Analista", "case_id": "ELO-1042", "mode": "local", "question": "Qual o risco vigente?"}
+        capped = deepcopy(self.store.read())
+        capped["assistant_queries"] = [{}] * 200
+        with patch.object(self.store, "read", return_value=capped), patch("consultation.answer") as generated:
+            self.assertEqual(self.request("POST", "/api/assistant/query", payload)[0], 409)
+            generated.assert_not_called()
+        original = consultation.answer
+        def mutate_during_answer(context):
+            result = original(context)
+            risk = self.store.read()["risks"][0]
+            self.store.apply("risk/save", {**risk, "actor": "Revisor", "reason": "Nova evidência", "level": "Baixa"})
+            return result
+        with patch("consultation.answer", side_effect=mutate_during_answer):
+            self.assertEqual(self.request("POST", "/api/assistant/query", payload)[0], 409)
+        self.assertEqual(self.store.read()["assistant_queries"], [])
+        self.assertTrue(self.store.read()["audit_valid"])
+        self.assertEqual(len(self.store.read()["audit"]), 2)
 
     def test_local_connector_is_not_available_over_http(self):
         before = self.store.export_state()
