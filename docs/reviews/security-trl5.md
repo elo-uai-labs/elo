@@ -37,3 +37,20 @@ Backup/restauração comparam origem e destino novos, arquivos e ambas as trilha
 - `scripts/trl-operation-server.py`: `3edf0c33f1eceb4d6f3826733fa10bd8578f6d02aaf0300d0896c21827e10187`.
 - `backend/dossier.py`: `fb22cb6841ab44db0fd898592912875c20af1a30a25696864928d05f330efc59`.
 - `backend/tests/test_dossier_cited_mentions.py`: `52ccfbd9cb713cec7afc86d8c59f36b2f62219876ba2f5efd7a1c0cd79cda8c6`.
+
+## Complemento: operação real limitada e guarda do ensaio de crash
+
+Revisão estática independente dos deltas `96c0e59` e `e6ed7ff`, sem nova chamada paga ou reexecução do exercício. Sem bloqueador adicional no escopo local examinado.
+
+O launcher real exige `--real --allow-paid`; Python também valida as duas flags, chave e modelo antes de iniciar. O contador limita a duas tentativas de geração e incrementa antes do pedido, inclusive se este falhar; as duas escritas de IA são sequenciais, enquanto as três threads concorrentes somente leem. Não há repetição automática neste harness. O limite é um controle do ensaio, não quota corporativa do servidor.
+
+A subclasse mantém banco, contas e log no TemporaryDirectory, servidor em loopback e autenticação obrigatória. O Exercise original continua limpando a chave. No modo real, a chave passa por ambiente dos processos launcher/Python e backend temporário; não é enviada ao navegador nem gravada no relatório por este código. Como o ambiente do backend é herdado, subprocessos locais podem também herdá-la: isto não constitui isolamento de segredo entre processos do mesmo usuário. O relatório guarda respostas sintéticas, uso e métricas, sem cookies, senha ou cabeçalho Authorization; falhas HTTP registram somente rota/status e exceções genéricas. O log temporário é removido no fechamento do diretório. Não afirmo inspeção dinâmica independente de logs ou de ausência de segredo nesta revisão estática.
+
+Asserções verificam proveniência do OCR congelado, identidade do provedor, resposta com referência ao documento revisado e preservação do estado de negócio. A aprovação é explicitamente atribuída a conta sintética automatizada; os resultados não representam julgamento humano, novo holdout ou certificação TRL. O relatório existente foi produzido pelo autor; não constitui nova execução independente deste revisor.
+
+A guarda do worker de crash restringe banco e marcador ao diretório temporário com prefixo esperado, nomes exatos e arquivos não simbólicos antes da execução. Ajuda a evitar uso acidental do banco manual. É uma proteção operacional do harness, não uma fronteira contra usuário local malicioso capaz de alterar arquivos ou criar hardlinks. Não há alteração do runtime produtivo nestes deltas.
+
+Hashes do complemento:
+- `scripts/trl-real-operation.py`: `3f89ef5ff2b54d7c7e4171e094313f1d66e5ff7242e1357497f986041ffe6196`.
+- `scripts/trl-real-operation.mjs`: `487d17a3479f1424c331c25fdafde1bca8276e6bc49531674d520479f5ef4c05`.
+- `scripts/trl-crash-transaction.py`: `ccc1fe39e0220937e502eceed1c1d12df571bb7488978f9b6e0e243d78cc2e7b`.
