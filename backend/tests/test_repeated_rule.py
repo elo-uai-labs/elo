@@ -58,6 +58,11 @@ class RepeatedRuleTest(unittest.TestCase):
         config['contract_title_contains']='mensal'
         self.assertEqual(rule_config.match(fixture['dataset'],RULE,config),[])
 
+    def test_assistant_checks_repeated_case_identifiers(self):
+        source={'id':'SIG-REP-CTR-R1','detail':'Sinal sintético do contrato repetido.'}
+        self.assertTrue(dossier.cited_mentions_supported('Sinal SIG-REP-CTR-R1.', [source['id']], [source]))
+        self.assertFalse(dossier.cited_mentions_supported('Sinal SIG-REP-CTR-INVENTADO.', [source['id']], [source]))
+
     def test_peer_selection_is_order_independent(self):
         data=laboratory.load_fixture(RULE)['dataset']
         expected=match_repeated_cases(data)

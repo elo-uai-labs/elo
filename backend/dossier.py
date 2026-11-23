@@ -33,7 +33,7 @@ def configured():
     return provider() == "openai" and all(os.getenv(name, "").strip() for name in ("OPENAI_API_KEY", "ELO_MODEL"))
 
 
-ENTITY_PATTERN = r"\b(?:CTR|FOR|EMP|RSK|CTL|DIM|REC|EVD|AVA|RPT|SIM|ELO|SIG-SUP|DEC-ELO|WRK|DOC|ASK|BAT)-[A-Za-z0-9_-]+"
+ENTITY_PATTERN = r"\b(?:CTR|FOR|EMP|RSK|CTL|DIM|REC|EVD|AVA|RPT|SIM|ELO|SIG-SUP|SIG-REP|DEC-ELO|WRK|DOC|ASK|BAT)-[A-Za-z0-9_-]+"
 
 
 def cited_mentions_supported(text, source_ids, evidence):
