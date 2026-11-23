@@ -2,6 +2,7 @@
 import argparse
 import csv
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -78,7 +79,7 @@ def main():
     args = parser.parse_args()
     try:
         data = args.input.read_bytes()
-        with args.input.open(newline='', encoding='utf-8-sig') as stream:
+        with io.StringIO(data.decode('utf-8-sig'), newline='') as stream:
             reader = csv.DictReader(stream)
             if reader.fieldnames != FIELDS:
                 raise ValueError('Cabeçalho deve corresponder ao modelo benefit-template.csv')
