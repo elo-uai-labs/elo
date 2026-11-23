@@ -24,7 +24,20 @@ def configured():
     return bool(os.getenv("ELO_ON_DEVICE_BIN") or (os.getenv("OPENAI_API_KEY") and os.getenv("ELO_MODEL")))
 
 
-def verified_dossier(output, model, ids, allow_empty=False):
+ENTITY_PATTERN = r"\b(?:CTR|FOR|EMP|RSK|CTL|DIM|REC|EVD|AVA|RPT|SIM|ELO|SIG-SUP|DEC-ELO|WRK|DOC|ASK|BAT)-[A-Za-z0-9_-]+"
+
+
+def cited_mentions_supported(text, source_ids, evidence):
+    # A literal mention in a cited document is not a new entity link or source ID.
+    cited = set(source_ids)
+    permitted = set(cited)
+    for source in evidence:
+        if source["id"] in cited:
+            permitted.update(re.findall(ENTITY_PATTERN, source["detail"]))
+    return set(re.findall(ENTITY_PATTERN, text)).issubset(permitted)
+
+
+def verified_dossier(output, model, ids, allow_empty=False, evidence=None):
     claims = output["claims"]
     limitations = output["limitations"].strip()
     suggestion = output["suggestion"].strip()
@@ -40,7 +53,7 @@ def verified_dossier(output, model, ids, allow_empty=False):
         if any(not isinstance(ref, str) or ref not in ids for ref in sources):
             raise ValueError("Invalid claim source IDs")
         mentioned = set(re.findall(r"\b(?:CTR|FOR|EMP)-[A-Za-z0-9_-]+", text))
-        if not mentioned.issubset(ids):
+        if (evidence is not None and not cited_mentions_supported(text, sources, evidence)) or (evidence is None and not mentioned.issubset(ids)):
             raise ValueError("Every mentioned record must exist in the supplied evidence")
         clean.append({"text": text, "source_ids": list(dict.fromkeys(sources))})
         references.extend(sources)
@@ -75,7 +88,7 @@ def generate_on_device(binary, evidence, ids, instructions=INSTRUCTIONS, allow_e
             process = subprocess.run([binary], input=json.dumps(payload), capture_output=True, text=True, check=True, timeout=remaining, env=environment)
             try:
                 output = json.loads(process.stdout)
-                return verified_dossier(output, output["model"], ids, allow_empty=allow_empty)
+                return verified_dossier(output, output["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None)
             except (ValueError, KeyError, TypeError, AttributeError):
                 if attempt:
                     raise
@@ -150,6 +163,6 @@ def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, q
             result = json.load(response)
         output = next(part["text"] for item in result["output"] if item["type"] == "message"
                       for part in item["content"] if part["type"] == "output_text")
-        return verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty)
+        return verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None)
     except (URLError, TimeoutError, ValueError, KeyError, TypeError, AttributeError, StopIteration) as error:
         raise WorkflowError("A síntese por IA não foi concluída. Confira a configuração e tente novamente.", 502) from error

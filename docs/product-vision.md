@@ -135,4 +135,11 @@ S5 `74e512e`: segunda tipologia, laboratório ampliado, vínculos/tendências, m
 
 S6 aprovado localmente: consulta por fontes selecionadas do caso, resposta local ou modelo real, abstenção e arquivo auditado; proíbe gravação de decisões pela IA. Backup/restauração exige origem/destino explícitos, verifica a cópia e publica somente em caminho novo. Testes usam bancos temporários. Seis testes específicos de backup passaram, incluindo escrita concorrente e corrida de publicação. Revisão independente e aceite final registrados pelo orquestrador: 116 testes backend, E2E local/real, autenticação, desktop/celular, persistência e recuperação verificados.
 
-Próximo trabalho dependente de definição externa: piloto corporativo exige provedor, fonte e hospedagem definidos/autorizados, metodologia oficial e metas operacionais acordadas. A entrega local não substitui essas dependências nem comprova produto completo.
+Além do aceite final da evolução orientada ao edital descrita abaixo, o piloto corporativo exige provedor, fonte e hospedagem definidos/autorizados, metodologia oficial e metas operacionais acordadas. A entrega local não substitui essas dependências nem comprova produto completo.
+
+
+### Evolução orientada ao edital · backend validado, interface em validação
+
+A leitura do TR e dos critérios identificou lacunas locais adicionais, registradas na [matriz operacional](edital-execution.md); elas não foram convertidas artificialmente em dependências externas. Implementados: trabalhos/demandas da 2ª Linha, configuração versionada de ambas as regras, laboratório independente para cada tipologia, extração literal de TXT UTF-8 até 32 KiB com revisão humana e reutilização de trechos aceitos no assistente, trilha HTTP independente e inclusão verificada no backup. Os estados de aprovação S1–S6 acima descrevem checkpoints anteriores; as novas interfaces ainda passam pelo aceite ampliado.
+
+O orquestrador informou 147 testes backend aprovados. Revisões DBA/segurança dos novos trechos e testes específicos não encontraram bloqueador no escopo local; medições e hashes constam em `edital-execution.md`. Nenhum aceite final de frontend, orçamento calculado, piloto corporativo ou conformidade foi inferido desses resultados. O plano experimental e o CSV de custos contêm métodos, fórmulas e premissas por validar; TRL 4 é autoavaliação proposta, não certificação externa.

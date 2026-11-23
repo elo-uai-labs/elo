@@ -1,0 +1,33 @@
+{
+  "id": "elo-supplier-lab", "version": "1.0.0", "synthetic": true,
+  "description": "Gabarito manual independente para códigos compartilhados por fornecedores distintos; sinais não são prova de irregularidade.",
+  "expected_rule": {"id": "supplier-shared-contact", "version": "1"},
+  "dataset": {
+    "employees": [{"id":"EMP-LAB-1","name":"Pessoa fictícia","role":"Aprovador","contact_code":"UNIQUE"}],
+    "suppliers": [
+      {"id":"FOR-LAB-A","name":"Fornecedor A fictício","contact_code":"SHARED"},
+      {"id":"FOR-LAB-B","name":"Fornecedor B fictício","contact_code":"SHARED"},
+      {"id":"FOR-LAB-C","name":"Fornecedor C fictício","contact_code":"UNIQUE"},
+      {"id":"FOR-LAB-D","name":"Fornecedor D fictício","contact_code":""},
+      {"id":"FOR-LAB-E","name":"Fornecedor E fictício","contact_code":""},
+      {"id":"FOR-LAB-F","name":"Fornecedor F fictício","contact_code":"shared"}
+    ],
+    "contracts": [
+      {"id":"CTR-LAB-SA","title":"Compartilhamento A","supplier_id":"FOR-LAB-A","approver_id":"EMP-LAB-1"},
+      {"id":"CTR-LAB-SB","title":"Compartilhamento B","supplier_id":"FOR-LAB-B","approver_id":"EMP-LAB-1"},
+      {"id":"CTR-LAB-SC","title":"Código único repetido em contrato","supplier_id":"FOR-LAB-C","approver_id":"EMP-LAB-1"},
+      {"id":"CTR-LAB-SC2","title":"Outro contrato mesmo fornecedor","supplier_id":"FOR-LAB-C","approver_id":"EMP-LAB-1"},
+      {"id":"CTR-LAB-SD","title":"Cadastro vazio","supplier_id":"FOR-LAB-D","approver_id":"EMP-LAB-1"},
+      {"id":"CTR-LAB-SF","title":"Código diferente por caixa","supplier_id":"FOR-LAB-F","approver_id":"EMP-LAB-1"}
+    ]
+  },
+  "expected_contract_ids": ["CTR-LAB-SA", "CTR-LAB-SB"],
+  "scenarios": [
+    {"contract_id":"CTR-LAB-SA","scenario":"Dois fornecedores compartilham código","reason":"Sinal plantado A/B."},
+    {"contract_id":"CTR-LAB-SB","scenario":"Compartilhamento no outro fornecedor","reason":"O contrato de B também deve ser sinalizado."},
+    {"contract_id":"CTR-LAB-SC","scenario":"Coincidência somente com empregado","reason":"A regra de fornecedores não considera empregados."},
+    {"contract_id":"CTR-LAB-SC2","scenario":"Fornecedor com dois contratos","reason":"Repetir contratos não cria um segundo fornecedor."},
+    {"contract_id":"CTR-LAB-SD","scenario":"Códigos vazios em dois fornecedores","reason":"Vazios não são coincidência positiva."},
+    {"contract_id":"CTR-LAB-SF","scenario":"Comparação exata","reason":"Código minúsculo é distinto do código maiúsculo."}
+  ]
+}

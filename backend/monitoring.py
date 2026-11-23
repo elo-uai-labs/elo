@@ -64,7 +64,12 @@ def transition(state, data):
         requested_rules.append('contact-code-match')
     if payload['dataset']['suppliers'] or payload['dataset']['contracts']:
         requested_rules.append('supplier-shared-contact')
+    from rule_config import get_config
+    skipped_rule_ids = []
     for rule_id in requested_rules:
+        if not get_config(working, rule_id)["enabled"]:
+            skipped_rule_ids.append(rule_id)
+            continue
         processed = (working.get('detection') or {}).get('processed_by_rule', {}).get(rule_id, [])
         if not any(contract['id'] not in processed for contract in working['dataset']['contracts']):
             continue
@@ -77,7 +82,7 @@ def transition(state, data):
         'content_sha256': content_hash, 'actor': actor,
         'at': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
         'synthetic': True, 'case_ids': list(case_ids), 'contracts_analyzed': list(scanned),
-        'rules': rules,
+        'rules': rules, 'skipped_rule_ids': skipped_rule_ids,
         'imported_counts': imported['counts'], 'record_ids': imported['record_ids'],
     }
     working.setdefault('integration_batches', []).append(batch)

@@ -1,0 +1,19 @@
+id,categoria,unidade,quantidade,preco_unitario_brl,formula_subtotal,premissa,evidencia_pendente
+C01,Desenvolvimento por perfil,hora,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Horas separadas por função e etapa sem duplicar despesas,Estimativa equipe
+C02,Implantação e configuração,hora,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Ambiente alvo a definir,Plano implantação
+C03,Integrações e metodologia,hora,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Quantidade de fontes e complexidade autorizadas,Contrato dados e instrumento oficial
+C04,Infraestrutura,mês,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Usuários simultâneos e capacidade a definir,Cotação datada
+C05,Armazenamento e backup,GiB-mês,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Crescimento retenção e réplicas explícitos,Dimensionamento e cotação
+C06,IA entrada,milhão tokens,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Modelo escolhido e média por consulta incluindo tentativas,Telemetria sintética e preço datado
+C07,IA saída,milhão tokens,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Tokens gerados incluindo respostas descartadas,Telemetria sintética e preço datado
+C08,Modelo local e hardware,mês,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Cenário alternativo ou híbrido sem assumir custo zero,Rateio hardware energia operação
+C09,Identidade chaves e observabilidade,mês,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Licenças franquias e excedentes explícitos,Cotação e limites
+C10,Suporte e manutenção,hora,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Janela atendimento e severidades a definir,Plano suporte
+C11,Capacitação,hora,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Participantes materiais e turmas a definir,Plano treinamento
+C12,Auditoria e testes independentes,serviço,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Escopo contratado não confundido com testes internos,Cotação terceiros
+C13,Licenças adicionais,mês,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Direitos de distribuição e limites de uso a verificar,Inventário licenças
+C14,Migração e encerramento,hora,A DEFINIR,A DEFINIR,quantidade*preco_unitario_brl,Exportação retenção transitória descarte e comprovação,Plano saída
+C15,Tributos e indiretos,base percentual,A DEFINIR,A DEFINIR,base_validada*taxa_validada,Base e regime a validar sem duplicar custo hora,Validação financeira
+C16,Contingência,base percentual,A DEFINIR,A DEFINIR,base_validada*taxa_validada,Riscos identificados e reserva explícita,Justificativa riscos
+TOTAL,Custo total do experimento,BRL,A DEFINIR,A DEFINIR,SOMA(subtotais_aplicaveis),Selecionar cenário baixo base alto e período; teto edital não é preço,Quantidades e cotações aprovadas
+BENEFICIO,Eficiência medida,BRL,A DEFINIR,A DEFINIR,horas_evitadas_medidas*custo_hora_validado-custo_operacional_incremental,Não monetizar perda evitada sem evidência,Resultados baseline versus piloto

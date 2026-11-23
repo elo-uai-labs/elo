@@ -19,6 +19,16 @@ body { margin: 0; min-block-size: 100vh; }
 }
 
 .app-header { background: var(--p-color-canvas); }
+.app-footer { color-scheme: dark; color: var(--p-color-primary); background: var(--p-color-canvas); }
+.footer-content {
+  display: grid;
+  gap: var(--p-spacing-fluid-lg);
+  padding-block: var(--p-spacing-fluid-lg);
+}
+.footer-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--p-spacing-fluid-lg); }
+.footer-column { display: grid; align-content: start; justify-items: start; gap: var(--p-spacing-static-sm); }
+.footer-signature { display: flex; justify-content: center; padding-block: var(--p-spacing-fluid-md); }
+@media (max-width: 760px) { .footer-columns { grid-template-columns: minmax(0, 1fr); } }
 .masthead { min-block-size: 4.75rem; display: flex; align-items: center; justify-content: space-between; gap: var(--p-spacing-static-sm); }
 .identity { display: flex; align-items: center; gap: var(--p-spacing-static-md); }
 .product-name { padding-inline-start: var(--p-spacing-static-md); border-inline-start: 1px solid var(--p-color-contrast-lower); }
@@ -134,3 +144,5 @@ form:has(:is(p-select, p-input-text, p-input-date, p-textarea, p-checkbox, p-inp
 }
 
 .session-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--p-spacing-static-sm); }
+
+.document-text { white-space: pre-wrap; }

@@ -66,7 +66,7 @@ class AuthServerTest(unittest.TestCase):
         return cookie, state
 
     def test_session_auth_protection_cookie_logout_expiry(self):
-        for path in ('/api/state', '/api/audit/export', '/api/supervision', '/api/laboratory', '/api/insights', '/api/people', '/api/evidence/EVD-0001'):
+        for path in ('/api/state', '/api/audit/export', '/api/supervision', '/api/laboratory', '/api/insights', '/api/work/summary', '/api/people', '/api/evidence/EVD-0001'):
             self.assertEqual(self.request(path=path)[0], 401)
         status, _, state = self.request(path='/api/session')
         self.assertEqual(state, {'auth_required': True, 'authenticated': False, 'user': None, 'mode': 'local-auth'})
@@ -171,6 +171,54 @@ class AuthServerTest(unittest.TestCase):
             status, _, _ = self.request('POST', '/api/assistant/query', {'case_id': 'ELO-1042', 'mode': 'local', 'question': 'Qual o risco vigente?'}, auditor)
         self.assertEqual(status, 401)
         self.assertEqual(self.store.export_state(), before)
+
+    def test_rule_configuration_requires_reviewer_and_current_revision(self):
+        config = self.store.read()['rules'][0]['configuration']
+        payload = {**config, 'enabled': False, 'actor': 'admin', 'reason': 'Calibração revisada'}
+        analyst = self.login('alice')
+        self.assertEqual(self.request('POST', '/api/rule/config', payload, analyst)[0], 403)
+        reviewer = self.login('bob')
+        status, _, state = self.request('POST', '/api/rule/config', payload, reviewer)
+        self.assertEqual(status, 200)
+        self.assertEqual(state['audit'][-1]['actor'], 'bob')
+        self.assertEqual(self.request('POST', '/api/rule/config', payload, reviewer)[0], 409)
+        self.assertFalse(self.store.read()['rules'][0]['configuration']['enabled'])
+
+    def test_work_roles_ownership_cas_and_human_completion(self):
+        payload = {'actor': 'admin', 'reason': 'Planejamento humano', 'title': 'Revisão temática', 'description': 'Trabalho independente de caso',
+                   'owner': 'worker', 'due': '2027-01-01', 'priority': 'high', 'priority_reason': 'Prazo próximo', 'case_ids': []}
+        auditor = self.login('eve')
+        worker = self.login('worker')
+        self.assertEqual(self.request('POST', '/api/work/create', payload, auditor)[0], 403)
+        self.assertEqual(self.request('POST', '/api/work/create', payload, worker)[0], 403)
+        reviewer = self.login('bob')
+        self.assertEqual(self.request('POST', '/api/work/create', {**payload, 'owner': 'bob'}, reviewer)[0], 422)
+        status, _, state = self.request('POST', '/api/work/create', payload, reviewer)
+        self.assertEqual(status, 200)
+        item = state['work_items'][0]
+        self.assertEqual(item['created_by'], 'bob')
+        progress = {'id': item['id'], 'revision': item['revision'], 'status': 'in_progress', 'reason': 'Execução iniciada', 'actor': 'worker'}
+        admin = self.login('admin')
+        self.assertEqual(self.request('POST', '/api/work/status', progress, reviewer)[0], 403)
+        self.assertEqual(self.request('POST', '/api/work/status', progress, admin)[0], 403)
+        status, _, state = self.request('POST', '/api/work/status', progress, worker)
+        self.assertEqual(status, 200)
+        item = state['work_items'][0]
+        self.assertEqual(item['updated_by'], 'worker')
+        self.assertEqual(self.request('POST', '/api/work/update', {**payload, 'id': item['id'], 'revision': item['revision']}, worker)[0], 403)
+        status, _, state = self.request('POST', '/api/work/update', {**payload, 'id': item['id'], 'revision': item['revision'], 'owner': 'alice'}, reviewer)
+        self.assertEqual(status, 200)
+        item = state['work_items'][0]
+        complete = {'id': item['id'], 'revision': item['revision'], 'status': 'completed', 'reason': 'Revisão concluída', 'result': 'Achados humanos registrados'}
+        self.assertEqual(self.request('POST', '/api/work/status', complete, worker)[0], 403)
+        analyst = self.login('alice')
+        status, _, state = self.request('POST', '/api/work/status', complete, analyst)
+        self.assertEqual(status, 200)
+        self.assertEqual(state['work_items'][0]['status'], 'completed')
+        self.assertEqual(state['work_items'][0]['updated_by'], 'alice')
+        self.assertEqual(state['audit'][-1]['authentication']['user_id'], 'alice')
+        self.assertEqual(self.request(path='/api/work/summary', cookie=auditor)[0], 200)
+        self.assertTrue(state['audit_valid'])
 
     def test_scenario_authorization_is_server_side(self):
         auditor = self.login('eve')

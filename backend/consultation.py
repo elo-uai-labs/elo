@@ -38,6 +38,9 @@ def context_for(state, case_id):
     for action in actions[:3]:
         sources.append({"id": action["id"], "source": "Plano de ação",
                         "detail": f"{action['title']}; responsável {action['owner']}; prazo {action['due']}; situação {action['status']}. Evidência textual: {action['evidence']}", "revision": action["revision"]})
+    import document_analysis
+    reviewed_documents = document_analysis.sources(state, case_id)
+    sources.extend(reviewed_documents[:3])
     # Bounds are disclosed; full original documents are never silently ingested.
     truncated = False
     for source in sources:
@@ -45,8 +48,8 @@ def context_for(state, case_id):
             source["detail"] = source["detail"][:700]
             source["truncated"] = True
             truncated = True
-    return {"case_id": case["id"], "sources": sources, "partial": truncated or len(actions) > 3,
-            "scope": "Somente fontes exibidas deste caso, com até três planos e trechos de até 700 caracteres. Arquivos anexados não são lidos pela IA. Esta consulta não altera decisões, riscos, maturidade ou planos."}
+    return {"case_id": case["id"], "sources": sources, "partial": truncated or len(actions) > 3 or len(reviewed_documents) > 3,
+            "scope": "Somente fontes exibidas deste caso, com até três planos, três textos TXT aceitos por revisão humana e trechos de até 700 caracteres. Binários e textos não revisados não são enviados à IA. Esta consulta não altera decisões, riscos, maturidade ou planos."}
 
 
 def prepare(state, data):
@@ -94,9 +97,9 @@ def answer(context, generator=None):
                 or not isinstance(claim.get("source_ids"), list) or not 1 <= len(claim["source_ids"]) <= 20
                 or any(not isinstance(identifier, str) or identifier not in known for identifier in claim["source_ids"])):
             raise WorkflowError("A resposta contém afirmação sem fonte válida neste caso.", 502)
-        mentioned = set(re.findall(r"\b(?:CTR|FOR|EMP|RSK|CTL|DIM|REC|EVD|AVA|RPT|SIM|ELO|SIG-SUP|DEC-ELO)-[A-Za-z0-9_-]+", claim["text"]))
-        if not mentioned.issubset(known):
-            raise WorkflowError("A resposta menciona um registro fora das fontes deste caso.", 502)
+        from dossier import cited_mentions_supported
+        if not cited_mentions_supported(claim["text"], claim["source_ids"], sources):
+            raise WorkflowError("A resposta menciona um registro não sustentado pelas fontes citadas.", 502)
     if sum(len(claim["text"]) for claim in claims) + len(result["limitations"]) + len(result["suggestion"]) > 3000:
         raise WorkflowError("A resposta excede o limite local do assistente.", 502)
     if not claims:

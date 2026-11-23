@@ -23,7 +23,7 @@ ROLES = frozenset({'admin', 'analyst', 'reviewer', 'operator', 'auditor'})
 READS = frozenset({'read', 'state', 'audit/export', 'supervision', 'laboratory', 'people', 'session', 'evidence/download', 'assistant/query'})
 ANALYST = frozenset({'import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create'})
 REVIEWER = frozenset({'risk/save', 'control/save', 'dimension/save', 'catalog/archive',
-                      'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review'})
+                      'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review', 'rule/config'})
 MAX_SESSIONS = 1024
 MAX_FAILURE_KEYS = 1024
 
@@ -175,6 +175,29 @@ class AccessService:
         roles = set(stored['roles'])
         data = data or {}
         if command in READS:
+            return
+        if command == 'access-audit/export':
+            if not roles & {'reviewer', 'auditor', 'admin'}:
+                raise WorkflowError('Seu perfil não permite exportar registros de acesso.', 403)
+            return
+        if command in {'evidence/analyze', 'evidence/review'}:
+            if not roles & {'analyst', 'reviewer', 'admin'}:
+                raise WorkflowError('Seu perfil não permite analisar ou revisar documentos.', 403)
+            return
+        if command in {'work/create', 'work/update'}:
+            if not roles & {'analyst', 'reviewer', 'admin'}:
+                raise WorkflowError('Seu perfil não permite gerenciar trabalhos da segunda linha.', 403)
+            self.validate_owner(data.get('owner'))
+            return
+        if command == 'work/status':
+            item = next((row for row in (state or {}).get('work_items', []) if row['id'] == data.get('id')), None)
+            if item is None:
+                raise WorkflowError('Trabalho não encontrado.', 403)
+            if data.get('status') == 'cancelled':
+                if not roles & {'analyst', 'reviewer', 'admin'}:
+                    raise WorkflowError('Seu perfil não permite cancelar este trabalho.', 403)
+            elif not roles & {'operator', 'analyst', 'admin'} or item['owner'] != stored['id']:
+                raise WorkflowError('Somente o executor atribuído pode iniciar ou concluir este trabalho.', 403)
             return
         if command == 'scenario/create':
             if not roles & {'analyst', 'reviewer', 'admin'}:

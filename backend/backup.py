@@ -9,6 +9,7 @@ from contextlib import closing
 from pathlib import Path
 
 from domain import Store, WorkflowError
+from access_audit import verify_database
 
 
 def verified_copy(source, destination):
@@ -45,6 +46,8 @@ def verified_copy(source, destination):
         with closing(sqlite3.connect(temporary)) as copy:
             if copy.execute('PRAGMA integrity_check').fetchall() != [('ok',)]:
                 raise ValueError('Integridade SQLite inválida.')
+            if not verify_database(copy):
+                raise ValueError('Integridade da trilha de acesso inválida.')
         # Compatibility migrations, if needed, affect this private copy only.
         snapshot = Store(temporary).export_state(include_files=True)
         if not snapshot['audit_valid']:

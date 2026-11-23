@@ -188,7 +188,7 @@ async function runDesktop(browser, pageErrors) {
   await upload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).press('Enter');
   await (await chooserEvent).setFiles({ name: 'grande.txt', mimeType: 'text/plain', buffer: Buffer.alloc(1048577, 65) });
   await page.getByText('O arquivo excede o limite de 1 MiB.', { exact: true }).waitFor();
-  const evidenceBytes = Buffer.from('Ata sintética DEMO-01. Arquivo fictício para a jornada Elo.\n', 'utf8');
+  const evidenceBytes = Buffer.from('Ata sintética DEMO-01. CTR-1042 e FOR-042: verificação esmeralda <b>literal</b>. Arquivo fictício para a jornada Elo.\n', 'utf8');
   chooserEvent = page.waitForEvent('filechooser');
   await upload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).press('Enter');
   await (await chooserEvent).setFiles({ name: 'ata-sintetica.txt', mimeType: 'text/plain', buffer: evidenceBytes });
@@ -569,7 +569,7 @@ async function runGovernance(browser, pageErrors) {
   const mobileUpload = mobile.getByTestId('upload-ELO-1042-case');
   const mobileFileChooser = mobile.waitForEvent('filechooser');
   await mobileUpload.getByRole('button', { name: 'Selecionar arquivo de evidência', exact: true }).tap();
-  await (await mobileFileChooser).setFiles({ name: 'nota-mobile.txt', mimeType: 'text/plain', buffer: Buffer.from('Nota sintética anexada no celular.') });
+  await (await mobileFileChooser).setFiles({ name: 'nota-mobile.txt', mimeType: 'text/plain', buffer: Buffer.from('Nota sintética FOR-9999 <script>window.unsafeDocument=true</script> anexada no celular.') });
   await mobileUpload.getByLabel('Descrição e relação com o caso').fill('Nota fictícia do caso registrada em dispositivo móvel.');
   await mobileUpload.getByLabel('Responsável pelo anexo').fill('Analista Mobile Demo');
   await mobileUpload.getByLabel('Confirmo que o arquivo contém somente dados fictícios').check();
@@ -709,7 +709,7 @@ async function runAssistant(browser, pageErrors) {
     response.claims.forEach((claim, index) => claim.source_ids.forEach((id) => assert.ok(rendered[index].includes(id))));
   }
   const after = await snapshot();
-  for (const key of ['cases', 'risks', 'dimensions', 'actions', 'attachments', 'reports', 'assessments', 'scenarios', 'dataset']) assert.deepEqual(after[key], before[key], `Consulta não altera ${key}`);
+  for (const key of ['cases', 'risks', 'dimensions', 'actions', 'attachments', 'reports', 'assessments', 'scenarios', 'dataset', 'work_items', 'document_analyses']) assert.deepEqual(after[key], before[key], `Consulta não altera ${key}`);
   assert.equal(after.assistant_queries[1].abstained, true);
   await page.getByTestId('assistant-ASK-002').scrollIntoViewIfNeeded();
   await settleMotion(page);
@@ -727,6 +727,225 @@ async function runAssistant(browser, pageErrors) {
   await mobile.close();
 }
 
+async function createWork(page, title, priority = 'Alta') {
+  await page.getByRole('heading', { name: 'Planejar novo trabalho', exact: true }).click();
+  const form = page.getByTestId('work-new');
+  await form.getByLabel('Título do trabalho').fill(title);
+  await form.getByLabel('Objetivo e escopo do trabalho').fill('Verificar a documentação sintética dos controles da segunda linha.');
+  await form.getByLabel('Responsável pela execução').fill('Executora Demo');
+  await form.getByLabel('Prazo do trabalho').fill('2020-01-01');
+  await choose(form.locator('p-select[name=priority]'), priority);
+  await form.getByLabel('Justificativa da prioridade').fill('Amostra sintética priorizada por exposição e necessidade de revisão.');
+  await form.getByLabel('Responsável pelo registro').fill('Planejadora Demo');
+  await form.getByLabel('Justificativa do registro').fill('Planejamento independente de trabalho da segunda linha.');
+  await form.getByRole('button', { name: 'Planejar trabalho', exact: true }).click();
+  await page.getByText('Registro atualizado.', { exact: true }).waitFor();
+}
+
+async function runIndependentWorks(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto(`${baseUrl}/#governanca`);
+  await page.getByTestId('work-summary').getByText(/0 trabalho\(s\)/).waitFor();
+  await createWork(page, 'Revisão independente sem indício');
+  await page.getByTestId('work-item-WRK-001').locator('.work-status').getByText('Planejado', { exact: true }).waitFor();
+  let saved = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  assert.equal(saved.case, null);
+  assert.deepEqual(saved.work_items[0].case_ids, []);
+  await page.getByRole('heading', { name: 'Iniciar execução · WRK-001', exact: true }).click();
+  let form = page.getByTestId('work-WRK-001-in_progress');
+  await form.getByLabel('Responsável pelo registro').fill('Executora Demo');
+  await form.getByLabel('Justificativa do registro').fill('Início da revisão documental sintética.');
+  await form.getByRole('button', { name: 'Iniciar trabalho', exact: true }).click();
+  await page.getByTestId('work-item-WRK-001').locator('.work-status').getByText('Em execução', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Concluir trabalho · WRK-001', exact: true }).click();
+  form = page.getByTestId('work-WRK-001-completed');
+  await form.getByLabel('Responsável pelo registro').fill('Executora Demo');
+  await form.getByLabel('Justificativa do registro').fill('Revisão encerrada com resultado documentado.');
+  const activeWork = (await (await page.request.get(`${baseUrl}/api/state`)).json()).work_items[0];
+  const emptyCompletion = await page.request.post(`${baseUrl}/api/work/status`, { data: { id: activeWork.id, revision: activeWork.revision, status: 'completed', actor: 'Executora Demo', reason: 'Conclusão sem resultado deve ser recusada.', result: '' } });
+  assert.equal(emptyCompletion.status(), 422);
+  assert.equal((await (await page.request.get(`${baseUrl}/api/state`)).json()).work_items[0].status, 'in_progress', 'Resultado obrigatório impede conclusão vazia');
+  await form.getByLabel('Resultado e entregas do trabalho').fill('Amostra sintética revisada; documentação de controle conferida.');
+  await form.getByRole('button', { name: 'Concluir trabalho', exact: true }).click();
+  await page.getByTestId('work-item-WRK-001').locator('.work-status').getByText('Concluído', { exact: true }).waitFor();
+  assert.equal(await page.getByTestId('work-item-WRK-001').locator('form').count(), 0);
+  await createWork(page, 'Trabalho sintético para replanejar', 'Urgente');
+  await page.getByTestId('work-item-WRK-002').waitFor();
+  const summary = await (await page.request.get(`${baseUrl}/api/work/summary`)).json();
+  assert.equal(summary.pending, 1);
+  assert.equal(summary.overdue, 1);
+  assert.equal(summary.completion_rate.numerator, 1);
+  assert.equal(summary.completion_rate.denominator, 2);
+  assert.equal(summary.treatment_time.completed_with_timing, 1);
+  await verifyDesignSystem(page, ['p-input-date', 'p-select', 'p-textarea', 'p-table']);
+  await page.getByRole('heading', { name: 'Planejar novo trabalho', exact: true }).click();
+  await verifyTypography(page, '#work-new-owner', 'label');
+  await page.getByTestId('work-summary').scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-work-summary.png') });
+  await page.close();
+}
+
+async function runWorkUpdates(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto(`${baseUrl}/#governanca`);
+  await page.getByRole('heading', { name: 'Editar planejamento · WRK-002', exact: true }).tap();
+  const form = page.getByTestId('work-WRK-002');
+  await form.getByLabel('ELO-1042 · Possível conflito de interesses', { exact: true }).check();
+  await choose(form.locator('p-select[name=priority]'), 'Normal');
+  await form.getByLabel('Justificativa da prioridade').fill('Replanejamento após revisão da amostra sintética.');
+  await form.getByLabel('Responsável pelo registro').fill('Planejadora Mobile');
+  await form.getByLabel('Justificativa do registro').fill('Vincular indício e atualizar prioridade do trabalho.');
+  await form.getByRole('button', { name: 'Salvar trabalho', exact: true }).tap();
+  await page.getByTestId('work-item-WRK-002').getByRole('link', { name: 'Consultar ELO-1042', exact: true }).waitFor();
+  const state = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  const item = state.work_items.find((work) => work.id === 'WRK-002');
+  assert.equal(item.priority, 'normal');
+  assert.deepEqual(item.case_ids, ['ELO-1042']);
+  await page.getByRole('heading', { name: 'Cancelar trabalho · WRK-002', exact: true }).tap();
+  const cancel = page.getByTestId('work-WRK-002-cancelled');
+  await cancel.getByLabel('Responsável pelo registro').fill('Planejadora Mobile');
+  await cancel.getByLabel('Justificativa do registro').fill('Escopo sintético absorvido pela revisão concluída.');
+  await cancel.getByRole('button', { name: 'Cancelar trabalho', exact: true }).scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: path.join(output, 'mobile-work-cancel.png') });
+  await cancel.getByRole('button', { name: 'Cancelar trabalho', exact: true }).tap();
+  await page.getByTestId('work-item-WRK-002').locator('.work-status').getByText('Cancelado', { exact: true }).waitFor();
+  const summary = await (await page.request.get(`${baseUrl}/api/work/summary`)).json();
+  assert.equal(summary.pending, 0);
+  assert.equal(summary.overdue, 0);
+  assert.equal(summary.completion_rate.denominator, 1, 'Cancelamento sai do denominador de conclusão');
+  assert.equal(summary.treatment_time.completed_total, 1);
+  assert.deepEqual((await (await page.request.get(`${baseUrl}/api/state`)).json()).cases, state.cases, 'Trabalho não altera os casos vinculados');
+  await page.getByTestId('work-priorities').scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: path.join(output, 'mobile-work-summary.png') });
+  await page.close();
+}
+
+async function runRuleConfiguration(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto(`${baseUrl}/?case_id=ELO-1042#inteligencia`);
+  const before = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  const rule = before.rules.find((entry) => entry.id === 'contact-code-match');
+  await page.getByRole('heading', { name: `Configurar regra · ${rule.name}`, exact: true }).tap();
+  const form = page.getByTestId('rule-config-contact-code-match');
+  await form.getByLabel('Regra habilitada').uncheck();
+  await form.getByLabel('Comprimento mínimo do código').fill('2');
+  await form.getByLabel('Responsável pelo registro').fill('Revisora Regras Mobile');
+  await form.getByLabel('Justificativa do registro').fill('Desativação sintética para aferir falsos negativos no gabarito.');
+  await form.getByRole('button', { name: 'Salvar parâmetros da regra', exact: true }).scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'mobile-rule-configuration.png') });
+  await form.getByRole('button', { name: 'Salvar parâmetros da regra', exact: true }).tap();
+  await page.getByText('Configuração v2 · Desativada · Comprimento mínimo: 2', { exact: true }).waitFor();
+  assert.equal(await page.getByTestId('detect').getByRole('button').isDisabled(), true);
+  const after = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  assert.deepEqual(after.cases, before.cases, 'Reconfiguração preserva casos e parâmetros da detecção original');
+  assert.equal(after.rules.find((entry) => entry.id === rule.id).configuration.version, 2);
+  const stale = await page.request.post(`${baseUrl}/api/rule/config`, { data: { ...rule.configuration, actor: 'Revisora Demo', reason: 'Versão antiga recusada.' } });
+  assert.equal(stale.status(), 409);
+  await page.getByRole('button', { name: 'Executar laboratório sintético', exact: true }).tap();
+  await page.getByTestId('laboratory-result').getByText('Sinais não encontrados: 2', { exact: true }).waitFor();
+  await choose(page.locator('#laboratory-rule'), 'Cadastro compartilhado entre fornecedores');
+  await page.getByRole('button', { name: 'Executar laboratório sintético', exact: true }).tap();
+  await page.getByTestId('laboratory-result').getByText(/Regra: Cadastro compartilhado entre fornecedores/).waitFor();
+  assert.deepEqual((await (await page.request.get(`${baseUrl}/api/state`)).json()).cases, before.cases);
+  await page.getByTestId('laboratory-result').scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: path.join(output, 'mobile-laboratory-secondary.png') });
+  await page.close();
+}
+
+async function runDocumentReview(browser, pageErrors) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, acceptDownloads: true });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto(`${baseUrl}/?case_id=ELO-1042#governanca`);
+  const before = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  let form = page.getByTestId('analyze-EVD-0001');
+  await form.getByLabel('Responsável pela extração').fill('Analista Documental Demo');
+  await form.getByRole('button', { name: 'Extrair texto de EVD-0001', exact: true }).click();
+  await page.getByTestId('document-DOC-001').getByText('Identificadores reconhecidos: CTR-1042, FOR-042.', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Ler texto extraído · DOC-001', exact: true }).click();
+  await page.getByTestId('document-DOC-001').getByTestId('document-text').getByText(/esmeralda <b>literal<\/b>/).waitFor();
+  assert.equal(await page.getByTestId('document-DOC-001').locator('b').count(), 0, 'Texto extraído deve ser escapado');
+  await page.getByTestId('document-DOC-001').getByTestId('document-text').scrollIntoViewIfNeeded();
+  await settleMotion(page);
+  await page.screenshot({ path: path.join(output, 'desktop-document-review.png') });
+  form = page.getByTestId('document-review-DOC-001');
+  await choose(form.locator('p-select[name=outcome]'), 'Aceitar texto como fonte');
+  await form.getByLabel('Li o texto extraído, conferi o documento e os limites desta extração').check();
+  await form.getByLabel('Responsável pelo registro').fill('Revisora Documental Demo');
+  await form.getByLabel('Justificativa do registro').fill('Trecho literal conferido com o arquivo sintético do contrato.');
+  await form.getByRole('button', { name: 'Registrar revisão do texto', exact: true }).click();
+  await page.getByTestId('document-DOC-001').locator('.document-status').getByText('Texto aceito', { exact: true }).waitFor();
+  await page.goto(`${baseUrl}/?case_id=ELO-1042#inteligencia`);
+  form = page.getByTestId('assistant-form');
+  await form.getByLabel('Pergunta sobre este caso').fill('esmeralda');
+  await form.getByLabel('Responsável pela consulta').fill('Consultora Documental Demo');
+  await form.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+  const queryId = `ASK-${String(before.assistant_queries.length + 1).padStart(3, '0')}`;
+  await page.getByTestId(`assistant-${queryId}`).getByTestId('assistant-claims').getByText('Fontes: EVD-0001', { exact: true }).waitFor();
+  if (aiMode === 'real') {
+    form = page.getByTestId('assistant-form');
+    await form.getByLabel('Pergunta sobre este caso').fill('Qual verificação esmeralda é descrita no texto revisado e quais identificadores estão mencionados?');
+    await form.getByLabel('Responsável pela consulta').fill('Consultora IA Documental Demo');
+    await choose(page.locator('#assistant-mode'), 'IA real (requer configuração)');
+    await form.getByRole('button', { name: 'Consultar fontes do caso', exact: true }).click();
+    const realQueryId = `ASK-${String(before.assistant_queries.length + 2).padStart(3, '0')}`;
+    await page.getByTestId(`assistant-${realQueryId}`).waitFor({ timeout: 120000 });
+    const saved = (await (await page.request.get(`${baseUrl}/api/state`)).json()).assistant_queries.at(-1);
+    assert.equal(saved.mode, 'real');
+    assert.equal(saved.abstained, false);
+    assert.ok(saved.claims.some((claim) => claim.source_ids.includes('EVD-0001')));
+    const rendered = await page.getByTestId(`assistant-${realQueryId}`).getByTestId('assistant-claims').locator('p-text-list-item').allTextContents();
+    saved.claims.forEach((claim, index) => claim.source_ids.forEach((id) => assert.ok(rendered[index].includes(id))));
+  }
+  const after = await (await page.request.get(`${baseUrl}/api/state`)).json();
+  for (const key of ['cases', 'risks', 'actions', 'attachments', 'work_items']) assert.deepEqual(after[key], before[key]);
+  await page.goto(`${baseUrl}/#governanca`);
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Exportar auditoria de acessos', exact: true }).click();
+  const download = await downloadEvent;
+  const file = path.join(output, 'access-audit-package.json');
+  await download.saveAs(file);
+  const exported = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(exported.format, 'elo-access-audit-v1');
+  assert.ok(exported.events.length > 0);
+  const verified = require('node:child_process').spawnSync('python3', ['-c', 'import sys,json;sys.path.insert(0,"backend");from access_audit import verify_package;assert verify_package(json.load(open(sys.argv[1])))', file], { encoding: 'utf8' });
+  assert.equal(verified.status, 0, verified.stderr);
+  await page.close();
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  mobile.on('pageerror', (error) => pageErrors.push(error.message));
+  await mobile.goto(`${baseUrl}/?case_id=ELO-1042#governanca`);
+  form = mobile.getByTestId('analyze-EVD-0002');
+  await form.getByLabel('Responsável pela extração').fill('Analista Mobile Documental');
+  await form.getByRole('button', { name: 'Extrair texto de EVD-0002', exact: true }).tap();
+  await mobile.getByTestId('document-DOC-002').getByText('Identificadores sem correspondência: FOR-9999.', { exact: true }).waitFor();
+  await mobile.getByRole('heading', { name: 'Ler texto extraído · DOC-002', exact: true }).tap();
+  await mobile.getByTestId('document-DOC-002').getByTestId('document-text').scrollIntoViewIfNeeded();
+  assert.equal(await mobile.evaluate(() => window.unsafeDocument), undefined);
+  form = mobile.getByTestId('document-review-DOC-002');
+  await choose(form.locator('p-select[name=outcome]'), 'Rejeitar texto');
+  await form.getByLabel('Li o texto extraído, conferi o documento e os limites desta extração').check();
+  await form.getByLabel('Responsável pelo registro').fill('Revisora Mobile Documental');
+  await form.getByLabel('Justificativa do registro').fill('Identificador não corresponde à base sintética deste caso.');
+  await form.getByRole('button', { name: 'Registrar revisão do texto', exact: true }).scrollIntoViewIfNeeded();
+  await settleMotion(mobile);
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await mobile.screenshot({ path: path.join(output, 'mobile-document-review.png') });
+  await form.getByRole('button', { name: 'Registrar revisão do texto', exact: true }).tap();
+  await mobile.getByTestId('document-DOC-002').locator('.document-status').getByText('Texto rejeitado', { exact: true }).waitFor();
+  assert.equal(await mobile.getByTestId('document-review-DOC-002').count(), 0);
+  await mobile.close();
+}
+
 async function main() {
   const response = await fetch(new URL('/api/state', baseUrl));
   assert.ok(response.ok, 'O servidor local do Elo precisa estar em execução.');
@@ -737,12 +956,16 @@ async function main() {
   const browser = await chromium.launch(channel ? { channel } : undefined);
   const pageErrors = [];
   try {
+    await runIndependentWorks(browser, pageErrors);
     await runDesktop(browser, pageErrors);
     await runMobile(browser, pageErrors);
     await runExpanded(browser, pageErrors);
     await runGovernance(browser, pageErrors);
     await runInsights(browser, pageErrors);
     await runAssistant(browser, pageErrors);
+    await runWorkUpdates(browser, pageErrors);
+    await runRuleConfiguration(browser, pageErrors);
+    await runDocumentReview(browser, pageErrors);
     assert.deepEqual(pageErrors, []);
     console.log('Elo: jornada executável e navegação móvel verificadas com Playwright.');
   } finally {

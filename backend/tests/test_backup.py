@@ -12,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import consultation
 import dossier
+from access_audit import AccessAudit
 from backup import verified_copy
 from domain import Store, WorkflowError
 
@@ -103,6 +104,23 @@ class BackupTest(unittest.TestCase):
         self.assertEqual(list(self.root.glob('.elo-backup-*')), [])
         with self.assertRaises(FileExistsError):
             verified_copy(self.source, self.source)
+
+    def test_access_ledger_preserved_and_corruption_blocks_copy(self):
+        ledger = AccessAudit(self.source)
+        ledger.append(actor='auditor', mode='local-auth', event='export', target='/api/audit/export', outcome='success', ip='127.0.0.1')
+        expected = ledger.export()
+        verified_copy(self.source, self.destination)
+        self.assertEqual(AccessAudit(self.destination).export(), expected)
+        restored = self.root / 'access-restored.sqlite3'
+        verified_copy(self.destination, restored)
+        self.assertEqual(AccessAudit(restored).export(), expected)
+        with closing(sqlite3.connect(self.source)) as db, db:
+            db.execute('DROP TRIGGER access_audit_no_update')
+            db.execute("UPDATE access_audit SET hash='corrupt'")
+        invalid = self.root / 'invalid.sqlite3'
+        with self.assertRaises(ValueError):
+            verified_copy(self.source, invalid)
+        self.assertFalse(invalid.exists())
 
     def test_concurrent_source_writer_consistent_backup(self):
         def writer():

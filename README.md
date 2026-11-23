@@ -38,8 +38,8 @@ Alternativamente, configure `OPENAI_API_KEY` e `ELO_MODEL` no ambiente ou em `.e
 
 ## Jornada disponível
 
-1. **Visão geral:** indicadores calculados do estado persistido e navegação entre etapas.
-2. **Inteligência:** executar duas regras na base sintética, consultar fontes e anexos, gerar dossiês, registrar decisões humanas e consultar o assistente com fontes do caso.
+1. **Visão geral:** indicadores calculados, trabalhos da 2ª Linha com prioridade justificada, responsáveis, prazos e acompanhamento independente dos casos.
+2. **Inteligência:** configurar e executar duas regras sintéticas, medir ambas no laboratório, consultar fontes/anexos, revisar textos TXT, gerar dossiês, decidir e consultar o assistente.
 3. **Risco e maturidade:** gerenciar riscos, controles, avaliações e lacunas; aprovar impactos separadamente e simular cenários sem alterar o risco vigente.
 4. **Plano e auditoria:** atribuir planos, anexar execução, solicitar encerramento para revisão independente, revisar relatórios citados e exportar auditoria com arquivos.
 
@@ -97,12 +97,19 @@ O laboratório sintético tem gabarito independente e versionado. Execute pela C
 
 ## Análises, assistência e operação
 
-A Central de inteligência apresenta relações entre registros, tendências mensais e até cinco casos decididos semelhantes, com critérios explícitos. Duas regras determinísticas tratam coincidência cadastral entre fornecedor/aprovador e contato compartilhado entre fornecedores distintos. Os sinais não comprovam irregularidade. O laboratório v1 mede somente a primeira regra; a segunda possui testes positivos e negativos próprios.
+A Central de inteligência apresenta relações entre registros, tendências mensais e até cinco casos decididos semelhantes, com critérios explícitos. Duas regras determinísticas tratam coincidência cadastral entre fornecedor/aprovador e contato compartilhado entre fornecedores distintos. Os sinais não comprovam irregularidade. O laboratório possui gabaritos manuais independentes para ambas as regras. Configurações versionadas permitem ativação, comprimento mínimo do código, exclusões e filtro do título; sinais anteriores preservam a configuração aplicada.
 
-O assistente responde perguntas sobre o **caso selecionado**, registra pergunta/resposta/fontes e pode se abster. O modo local é uma busca textual determinística; IA real usa o provedor configurado e o contrato `elo-assistant-v1`. O contexto é limitado e pode ser parcial; não inclui bytes de anexos nem outros casos. Citações verificam referência, não comprovam por si só a sustentação semântica. Nenhuma resposta executa decisões ou altera riscos. Consultas são auditadas e acessíveis aos perfis autenticados deste ambiente.
+O assistente responde perguntas sobre o **caso selecionado**, registra pergunta/resposta/fontes e pode se abster. O modo local é uma busca textual determinística; IA real usa o provedor configurado e o contrato `elo-assistant-v1`. O contexto é limitado e pode ser parcial; não inclui bytes binários nem outros casos. Pode incluir até três textos TXT aceitos por revisão humana, com trechos de até 700 caracteres e indicação de contexto parcial. Citações verificam referência, não comprovam por si só a sustentação semântica. Nenhuma resposta executa decisões ou altera riscos. Consultas são auditadas e acessíveis aos perfis autenticados deste ambiente.
 
-Relatórios compilam afirmações de dossiês já revisados, com suas fontes preservadas e decisões humanas separadas, sem nova chamada de IA. A revisão exige pessoa distinta do autor quando o login está ativo. Evidências sintéticas TXT/PDF/PNG/JPEG ficam imutáveis no SQLite, com limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos; não são interpretadas pelo modelo.
+Relatórios compilam afirmações de dossiês já revisados, com suas fontes preservadas e decisões humanas separadas, sem nova chamada de IA. A revisão exige pessoa distinta do autor quando o login está ativo. Evidências sintéticas TXT/PDF/PNG/JPEG ficam imutáveis no SQLite, com limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos; PDF/imagens permanecem anexos sem OCR. TXT UTF-8 de até 32 KiB pode passar por extração literal local e reconhecimento de IDs, sem IA; somente após aceitação humana seus trechos podem integrar o assistente.
 
 [Monitoramento sintético](docs/monitoring.md) descreve a ingestão recorrente opcional de uma pasta controlada, sem conectar fontes reais. [Operação e recuperação](docs/operations.md) descreve backup/restauração verificados para caminhos novos, sem sobrescrever a origem. Nenhum monitor, conta ou backup manual foi criado automaticamente.
 
 A base local não conclui o piloto corporativo: faltam provedor de identidade, fonte autorizada, hospedagem, metodologia oficial e metas de capacidade/homologação. Consulte o [registro de entrega](docs/entrega.md) para evidências e limites.
+
+
+## Evolução orientada ao edital
+
+Trabalhos da 2ª Linha têm ciclo planejado → em andamento → concluído ou cancelado, controle de versão e justificativas; tempos reportados são corridos, não horas trabalhadas. A trilha HTTP separada registra acessos, login/logout, exportações, downloads, recusas e alterações, com identidade/modo e IP do socket. Não guarda senhas, tokens, corpos ou query arbitrária. Sua exportação é restrita a auditor/revisor/administrador no modo autenticado e verifica cadeia/manifesto independentes; backup também verifica essa trilha. Falha no registro HTTP após commit não desfaz uma alteração de negócio: a resposta orienta conferir o estado antes de repetir.
+
+Backend desta evolução: **147 testes passaram, conforme registro do orquestrador**. A validação final da interface e E2E ampliado está em execução; aceites anteriores não cobrem automaticamente estas mudanças. Consulte a [matriz do edital](docs/edital-execution.md), [plano experimental](docs/pilot-experiment.md), [prontidão de segurança](docs/security-readiness.md) e [modelo de custos](docs/cost-model.csv). O CSV contém fórmulas e valores **A DEFINIR**, não orçamento calculado ou proposta comercial. Não há declaração de conformidade CAIXA ou produção.

@@ -125,6 +125,44 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(self.store.read()["audit_valid"])
         self.assertEqual(len(self.store.read()["audit"]), 2)
 
+    def test_rule_config_and_laboratory_current_configuration(self):
+        before = self.store.export_state()
+        self.assertEqual(self.request(path="/api/laboratory?rule_id=unknown")[0], 409)
+        self.assertEqual(self.store.export_state(), before)
+        status, _, body = self.request(path="/api/laboratory?rule_id=supplier-shared-contact")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["rule"]["id"], "supplier-shared-contact")
+        config = self.store.read()["rules"][0]["configuration"]
+        status, _, body = self.request("POST", "/api/rule/config", {**config, "enabled": False, "actor": "Revisor", "reason": "Teste humano no gabarito"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["rules"][0]["configuration"]["version"], 2)
+        self.assertEqual(self.request("POST", "/api/detect", {})[0], 409)
+        before = self.store.export_state()
+        status, _, body = self.request(path="/api/laboratory?rule_id=contact-code-match")
+        self.assertEqual(status, 200)
+        result = json.loads(body)
+        self.assertFalse(result["rule"]["configuration"]["enabled"])
+        self.assertEqual(result["counts"]["predicted_positive"], 0)
+        self.assertEqual(self.store.export_state(), before)
+
+    def test_work_http_independent_create_update_and_summary(self):
+        payload = {"actor": "Planejador", "reason": "Planejamento humano", "title": "Revisão temática", "description": "Trabalho sem caso obrigatório",
+                   "owner": "Executor", "due": "2027-01-01", "priority": "high", "priority_reason": "Prazo próximo", "case_ids": []}
+        status, _, body = self.request("POST", "/api/work/create", payload)
+        self.assertEqual(status, 200)
+        state = json.loads(body)
+        self.assertIsNone(state["case"])
+        item = state["work_items"][0]
+        status, _, body = self.request("POST", "/api/work/update", {**payload, "id": item["id"], "revision": item["revision"], "title": "Título revisado"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["work_items"][0]["title"], "Título revisado")
+        status, _, body = self.request(path="/api/work/summary")
+        self.assertEqual(status, 200)
+        report = json.loads(body)
+        self.assertEqual(report["pending"], 1)
+        self.assertEqual(report["completion_rate"]["denominator"], 1)
+        self.assertIsNone(report["treatment_time"]["mean_seconds"])
+
     def test_local_connector_is_not_available_over_http(self):
         before = self.store.export_state()
         self.assertEqual(self.request("POST", "/api/integration/import", {"source_id": "spoof"})[0], 404)

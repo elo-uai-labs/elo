@@ -59,10 +59,21 @@ O arquivo de configuração é sensível mesmo contendo hashes. Não versionar, 
 
 ## Evidências e relatórios · integração S4
 
-Backend e interface integrados, com testes HTTP e jornadas desktop/celular aprovados no checkpoint S4. Arquivos sintéticos TXT/PDF/PNG/JPEG usam limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos. Metadados e bytes são persistidos na mesma transação, com hash/contagem conferidos ao consultar ou exportar. Download é forçado como anexo, com nome gerado pelo sistema; o servidor não executa, renderiza, extrai texto ou envia esses bytes ao modelo. Verificar assinatura básica do formato não equivale a varredura antimalware.
+Backend e interface integrados, com testes HTTP e jornadas desktop/celular aprovados no checkpoint S4. Arquivos sintéticos TXT/PDF/PNG/JPEG usam limites de 1 MiB por arquivo, 20 MiB no total e 200 arquivos. Metadados e bytes são persistidos na mesma transação, com hash/contagem conferidos ao consultar ou exportar. Download é forçado como anexo, com nome gerado pelo sistema; o servidor não executa nem renderiza esses bytes. O fluxo posterior permite extrair literalmente TXT UTF-8 de até 32 KiB, reconhecer IDs e exigir aceitação/rejeição humana com justificativa e versão. Somente trechos aceitos podem integrar as fontes do assistente; PDF/imagens não são processados por OCR. Verificar assinatura básica do formato não equivale a varredura antimalware.
 
 Relatórios são compilações identificadas de dossiês já revisados e decisões humanas, sem nova chamada de IA. Afirmações preservam fontes e suas cópias de origem, modelo/prompt, limitações e sugestão originais; quando a sugestão foi rejeitada, suas afirmações e sugestão ficam excluídas e a decisão humana permanece. Rascunhos exigem revisão explícita com justificativa e versão; uma vez aprovados ou recusados, não podem ser alterados.
 
 Pacotes de auditoria v2 incluem bytes e metadados exatos dos anexos, além de estado/eventos/manifesto. O verificador recusa omissões, duplicatas, arquivos extras, conteúdo alterado e limite excedido. Pacotes históricos v1 sem anexos continuam verificáveis. Hashes atestam consistência do pacote, não identidade de assinante nem existência de checkpoint externo confiável.
 
 Referências primárias consultadas para as primitivas: [Python hashlib, derivação de chave](https://docs.python.org/3/library/hashlib.html#key-derivation) e [Python secrets](https://docs.python.org/3/library/secrets.html). Parâmetros, papéis e limites acima descrevem esta implementação, sem declarar certificação de segurança.
+
+
+## Permissões da evolução orientada ao edital
+
+Analista/revisor/administrador podem criar, atualizar e cancelar trabalhos da 2ª Linha. Iniciar/concluir exige ser o executor atribuído, com papel operador/analista/administrador. Atribuições são validadas contra contas ativas permitidas, e as operações usam a revisão atual na mesma transação da mutação. Revisor/administrador configuram regras. Analista/revisor/administrador podem analisar e revisar TXT; o comando interno que registra a extração não é exposto por HTTP. A revisão de TXT exige confirmação, razão e CAS, mas não exige pessoa distinta do extrator; essa revisão não aprova impacto ou encerramento.
+
+Exportação da trilha de acessos é permitida a auditor/revisor/administrador. As operações da aplicação são registradas separadamente dos eventos de negócio: ator canônico ou modo anônimo/demonstração, horário, tipo, recurso normalizado, resultado e IP de socket. Cabeçalho X-Forwarded-For não fornece identidade de origem. Login recusado não armazena nome digitado; corpos, cookies, senhas e query arbitrária não são registrados. O log de requisição do servidor também remove query e sanitiza a rota.
+
+Pré-verificação da trilha bloqueia POST quando já inválida. Se uma falha ocorrer ao registrar o recibo HTTP após commit de negócio, a resposta 503 manda conferir o estado: não há rollback retroativo entre as cadeias independentes. Exportação/backup recusam cadeia inconsistente. A trilha não monitora acesso direto administrativo ao SQLite e não substitui centralização externa, retenção homologada ou assinatura independente.
+
+Backend ampliado com 147 testes aprovados segundo o orquestrador; aceite final da nova interface/E2E ainda pendente neste registro. Permanece execução local/sintética.

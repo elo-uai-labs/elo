@@ -29,6 +29,8 @@ let laboratoryResult;
 let supervisionResult;
 let insights;
 let insightsError = '';
+let workSummary;
+let workSummaryError = '';
 let selectedCaseId = new URL(location.href).searchParams.get('case_id');
 
 function cases() {
@@ -66,12 +68,21 @@ function loginScreen() {
 }
 
 function permissionReason(endpoint, form) {
-  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'logout'].includes(endpoint)) return '';
+  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'work/summary', 'logout'].includes(endpoint)) return '';
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
-  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create', 'scenario/create'];
-  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review', 'scenario/create'];
+  const analyst = ['import', 'detect', 'dossier', 'decision', 'case/link', 'action', 'report/create', 'scenario/create', 'evidence/analyze', 'evidence/review'];
+  const reviewer = ['risk/save', 'control/save', 'dimension/save', 'catalog/archive', 'maturity/assess', 'impact', 'action/edit', 'action/close', 'report/review', 'scenario/create', 'rule/config', 'evidence/analyze', 'evidence/review'];
+  if (endpoint.startsWith('work/')) {
+    const item = state.work_items?.find((work) => work.id === form.querySelector('input[name=id]')?.value);
+    const status = form.querySelector('input[name=status]')?.value;
+    const execution = endpoint === 'work/status' && status !== 'cancelled';
+    const allowed = roles.some((role) => (execution ? ['operator', 'analyst', 'admin'] : ['analyst', 'reviewer', 'admin']).includes(role));
+    if (!allowed) return 'Seu perfil permite consultar trabalhos, mas não executar esta ação.';
+    if (execution && item?.owner !== user.id) return 'Somente o responsável atribuído pode iniciar ou concluir este trabalho.';
+    return '';
+  }
   const uploadActionId = form.querySelector('input[name=action_id]')?.value;
   const uploadAllowed = endpoint === 'evidence/upload' && (uploadActionId ? roles.some((role) => ['operator', 'analyst', 'admin'].includes(role)) : roles.some((role) => ['analyst', 'reviewer', 'admin'].includes(role)));
   const permitted = uploadAllowed || roles.includes('admin') || (analyst.includes(endpoint) && roles.includes('analyst')) ||
@@ -94,7 +105,7 @@ async function loadWorkspace() {
   ]);
   state = nextState;
   people = directory.people;
-  await refreshInsights();
+  await Promise.all([refreshInsights(), refreshWorkSummary()]);
 }
 
 function expiredSession(error) {
@@ -105,6 +116,8 @@ function expiredSession(error) {
   selectedFiles.clear();
   insights = undefined;
   insightsError = '';
+  workSummary = undefined;
+  workSummaryError = '';
   supervisionResult = undefined;
   laboratoryResult = undefined;
   render();
@@ -290,7 +303,7 @@ function overview() {
       </div>
     </section>
     <section class="metric-strip" aria-label="Indicadores de todos os casos">${indicators}</section>
-    <div class="grid">${panel(`Jornada do caso${current ? ` · ${escape(current.id)}` : ''}`, `<p-text-list class="record-list" type="numbered">${journey}</p-text-list>`)}${datasetPanel()}</div>${trendsPanel()}${integrationPanel()}`;
+    <div class="grid">${panel(`Jornada do caso${current ? ` · ${escape(current.id)}` : ''}`, `<p-text-list class="record-list" type="numbered">${journey}</p-text-list>`)}${datasetPanel()}</div>${workSummaryPanel()}${trendsPanel()}${integrationPanel()}`;
 }
 
 function evidenceList(current) {
@@ -301,7 +314,7 @@ function evidenceList(current) {
       <p-text class="technical" size="sm">${escape(JSON.stringify(Object.values(state.dataset).flat().find((record) => record.id === item.id) || { indisponivel: 'Registro não encontrado' }, null, 2))}</p-text>
     </p-accordion>
   </div></p-text-list-item>`).join('');
-  return panel('Evidências e fontes', `<p-text size="sm" weight="semibold">Regra aplicada · ${escape(current.rule?.id || 'Vínculo cadastral')} v${escape(current.rule?.version || '1')}</p-text><p-text size="sm">${escape(current.rule?.description || 'Compara o código cadastral não vazio do empregado aprovador com o código do fornecedor relacionado ao contrato. A igualdade indica um vínculo a verificar; não comprova irregularidade.')}</p-text><p-text-list class="record-list" data-testid="evidence-list">${items}</p-text-list>`);
+  return panel('Evidências e fontes', `<p-text size="sm" weight="semibold">Regra aplicada · ${escape(current.rule?.id || 'Vínculo cadastral')} v${escape(current.rule?.version || '1')}</p-text><p-text size="sm">${escape(current.rule?.description || 'Compara o código cadastral não vazio do empregado aprovador com o código do fornecedor relacionado ao contrato. A igualdade indica um vínculo a verificar; não comprova irregularidade.')}</p-text>${current.rule?.configuration ? `<p-accordion><p-heading slot="summary" tag="h3" size="sm">Parâmetros preservados na detecção</p-heading><p-text class="technical" size="sm">${escape(JSON.stringify(current.rule.configuration, null, 2))}</p-text></p-accordion>` : '<p-text size="sm">Caso legado sem captura dos parâmetros de configuração. A configuração atual não descreve retroativamente esta detecção.</p-text>'}<p-text-list class="record-list" data-testid="evidence-list">${items}</p-text-list>`);
 }
 
 function dossierPanel(dossier, decisionExists) {
@@ -356,8 +369,8 @@ function laboratoryPanel() {
   const labels = { tp: 'Sinais encontrados corretamente', fp: 'Alarmes falsos', fn: 'Sinais não encontrados', tn: 'Negativos corretos' };
   const result = laboratoryResult;
   return panel('Laboratório sintético', `<p-text size="sm">Execute a regra em uma organização fictícia com gabarito independente. O laboratório não altera os casos desta base.</p-text>
-    <form class="form" data-endpoint="laboratory/run"><div class="actions"><p-button variant="secondary" icon="none" type="submit">Executar laboratório sintético</p-button></div></form>
-    ${result ? `<div class="stack" data-testid="laboratory-result"><p-text>${escape(result.scope)}</p-text>
+    <form class="form" data-endpoint="laboratory/run">${selectField('laboratory-rule', 'rule_id', 'Regra do laboratório', (state.rules || []).map((rule) => [rule.id, rule.name]), result?.rule?.id || 'contact-code-match')}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Executar laboratório sintético</p-button></div></form>
+    ${result ? `<div class="stack" data-testid="laboratory-result"><p-text>${escape(result.scope)}</p-text>${result.rule ? `<p-text size="sm">Regra: ${escape(result.rule.name)} · Configuração v${result.rule.configuration?.version || 1} · ${result.rule.configuration?.enabled === false ? 'Desativada' : 'Ativa'}</p-text>` : ''}
       <p-text size="sm">${escape(result.fixture.id)} · Versão ${escape(result.fixture.version)} · ${result.counts.total} contratos</p-text>
       <p-text-list>${Object.entries(labels).map(([key, label]) => `<p-text-list-item>${label}: ${result.counts[key]}</p-text-list-item>`).join('')}</p-text-list>
       <p-text>Precisão: ${ratio(result.metrics.precision.value)} (${result.metrics.precision.numerator}/${result.metrics.precision.denominator}) · Sensibilidade: ${ratio(result.metrics.recall.value)} (${result.metrics.recall.numerator}/${result.metrics.recall.denominator})</p-text>
@@ -382,19 +395,36 @@ function supervisionPanel() {
       ${result.alerts.length ? `<p-text-list>${result.alerts.map((item) => `<p-text-list-item>${escape(item.actor)} · ${escape(item.reason)} · Casos ${item.case_ids.map(escape).join(', ')}</p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Nenhum sinal da heurística de revisão rápida. Isso não atesta a qualidade da supervisão.</p-text>'}</div>` : '<p-text size="sm">Calcule as taxas e consulte motivos de discordância com base nas decisões registradas.</p-text>'}`);
 }
 
+function ruleConfiguration(rule) {
+  const config = rule.configuration;
+  if (!config) return '';
+  return `<p-text size="sm">Configuração v${config.version} · ${config.enabled ? 'Ativa' : 'Desativada'} · Comprimento mínimo: ${config.min_code_length}</p-text>
+    <p-accordion><p-heading slot="summary" tag="h4" size="sm">Configurar regra · ${escape(rule.name)}</p-heading>
+      <p-text size="sm">Os parâmetros são versionados. Ao salvar, a regra precisa ser executada novamente; casos e fontes anteriores permanecem preservados. Confira o efeito no laboratório antes de executar a análise.</p-text>
+      <form class="form" data-endpoint="rule/config" data-testid="rule-config-${escape(rule.id)}">
+        ${hidden('rule_id', rule.id)}${hidden('revision', config.revision)}
+        <p-checkbox name="enabled" value="true" label="Regra habilitada"${config.enabled ? ' checked' : ''}></p-checkbox>
+        <p-input-number name="min_code_length" label="Comprimento mínimo do código" min="1" max="160" step="1" value="${config.min_code_length}" required></p-input-number>
+        ${paragraph(`rule-exclusions-${rule.id}`, 'excluded_contact_codes', 'Códigos excluídos (um por linha, até 30)', config.excluded_contact_codes.join('\n'), false)}
+        <p-input-text name="contract_title_contains" label="Título do contrato contém (opcional)" max-length="160" value="${escape(config.contract_title_contains)}"></p-input-text>
+        ${auditFields(`rule-${rule.id}`)}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Salvar parâmetros da regra</p-button></div>
+      </form>
+    </p-accordion>`;
+}
+
 function detectionPanel() {
   const lastDetection = state.audit.findLast((event) => Array.isArray(event.details.case_ids));
   const noNewMatches = lastDetection && lastDetection.details.case_ids.length === 0;
   const rules = state.rules || [{ id: 'contact-code-match', name: 'Vínculo entre aprovador e fornecedor', description: 'Compara os códigos cadastrais do aprovador e do fornecedor.', version: '1', pending_count: state.dataset.contracts.filter((item) => !(state.detection?.processed_contract_ids || []).includes(item.id)).length }];
   return panel('Detecção de indícios', `<p-text>${cases().length} indício(s) registrado(s). Cada regra requer análise e revisão humana independentes.</p-text>
     ${noNewMatches ? '<p-inline-notification state="success" heading="Análise concluída sem novos indícios" description="A última execução não encontrou novos vínculos pela regra selecionada. Esse resultado não comprova ausência de outros riscos." dismiss-button="false"></p-inline-notification>' : ''}
-    ${rules.map((rule) => `<section class="stack"><p-heading tag="h3" size="md">${escape(rule.name)}</p-heading><p-text size="sm">${escape(rule.description)}</p-text><p-text size="sm">Versão ${escape(rule.version)} · ${rule.pending_count} contrato(s) pendente(s)</p-text>
-      <form class="form" data-endpoint="detect">${hidden('rule_id', rule.id)}<div class="actions"><p-button variant="${rule.id === 'contact-code-match' ? 'primary' : 'secondary'}" icon="none" data-testid="${rule.id === 'contact-code-match' ? 'detect' : 'detect-suppliers'}" type="submit"${!rule.pending_count ? ' disabled' : ''}>${rule.id === 'contact-code-match' ? 'Executar análise' : 'Analisar fornecedores relacionados'}</p-button></div></form></section>`).join('')}`);
+    ${rules.map((rule) => `<section class="stack"><p-heading tag="h3" size="md">${escape(rule.name)}</p-heading><p-text size="sm">${escape(rule.description)}</p-text><p-text size="sm">Versão ${escape(rule.version)} · ${rule.pending_count} contrato(s) pendente(s)</p-text>${ruleConfiguration(rule)}
+      <form class="form" data-endpoint="detect">${hidden('rule_id', rule.id)}<div class="actions"><p-button variant="${rule.id === 'contact-code-match' ? 'primary' : 'secondary'}" icon="none" data-testid="${rule.id === 'contact-code-match' ? 'detect' : 'detect-suppliers'}" type="submit"${!rule.pending_count || rule.configuration?.enabled === false ? ' disabled' : ''}>${rule.id === 'contact-code-match' ? 'Executar análise' : 'Analisar fornecedores relacionados'}</p-button></div></form></section>`).join('')}`);
 }
 
 function assistantPanel(current) {
   const queries = (state.assistant_queries || []).filter((query) => query.case_id === current.id);
-  return panel('Assistente do caso', `<p-text>Consulte as fontes deste caso. As respostas não executam ações nem alteram decisões, riscos, maturidade ou planos. Arquivos anexados não são lidos.</p-text>
+  return panel('Assistente do caso', `<p-text>Consulte as fontes deste caso. As respostas não executam ações nem alteram decisões, riscos, maturidade ou planos. Os arquivos binários não são enviados ao modelo. Somente trechos TXT extraídos e aceitos na revisão humana podem ser usados como fontes.</p-text>
     <form class="form" data-endpoint="assistant/query" data-testid="assistant-form">
       ${hidden('case_id', current.id)}
       <p-textarea id="assistant-question" name="question" label="Pergunta sobre este caso" max-length="800" required compact></p-textarea>
@@ -606,7 +636,7 @@ function attachmentUpload(action) {
   const selected = selectedFiles.get(key);
   return `<form class="form" data-endpoint="evidence/upload" data-upload-key="${escape(key)}" data-testid="upload-${escape(key)}">
     ${hidden('case_id', caseId)}${action ? hidden('action_id', action.id) : ''}
-    <p-text size="sm">TXT, PDF, PNG ou JPEG fictícios, até 1 MiB por arquivo e 20 MiB no ambiente. O conteúdo não é lido pelo modelo; o vínculo à evidência é registrado por uma pessoa.</p-text>
+    <p-text size="sm">TXT, PDF, PNG ou JPEG fictícios, até 1 MiB por arquivo e 20 MiB no ambiente. Os arquivos binários não são enviados ao modelo. Textos TXT de até 32 KiB podem ser extraídos e revisados separadamente antes de fornecer trechos ao assistente.</p-text>
     <input type="file" hidden data-native-file-picker id="file-${escape(key)}" accept=".txt,.pdf,.png,.jpg,.jpeg" data-upload-key="${escape(key)}">
     <div class="actions"><p-button variant="secondary" icon="none" type="button" data-pick-file="file-${escape(key)}">Selecionar arquivo de evidência</p-button></div>
     <p-text size="sm" class="reading" data-selected-file="${escape(key)}" aria-live="polite">${selected ? `${escape(selected.name)} · ${selected.size} bytes` : 'Nenhum arquivo selecionado.'}</p-text>
@@ -625,10 +655,29 @@ function attachmentList(items) {
   </div></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm" color="contrast-high">Nenhum arquivo de evidência anexado.</p-text>';
 }
 
+function documentAnalysisPanel() {
+  const attachments = (state.attachments || []).filter((item) => item.case_id === state.case.id);
+  const analyses = (state.document_analyses || []).filter((item) => item.case_id === state.case.id);
+  return `<section class="stack"><p-heading tag="h3" size="md">Leitura literal de documentos TXT</p-heading>
+    <p-text size="sm">Extração local de texto e identificadores, sem IA, OCR ou interpretação. Somente TXT de até 32 KiB. Revise o conteúdo antes de aceitar; apenas trechos aceitos podem compor as fontes do assistente deste caso.</p-text>
+    ${attachments.filter((item) => item.media_type === 'text/plain' && item.size <= 32768 && !analyses.some((analysis) => analysis.attachment_id === item.id)).map((item) => `<form class="form" data-endpoint="evidence/analyze" data-testid="analyze-${escape(item.id)}">${hidden('attachment_id', item.id)}<p-text weight="semibold">${escape(item.name)} · ${escape(item.id)}</p-text>${field(`analyze-${item.id}-actor`, 'actor', 'Responsável pela extração')}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Extrair texto de ${escape(item.id)}</p-button></div></form>`).join('')}
+    ${analyses.map((analysis) => `<section class="stack" data-testid="document-${escape(analysis.id)}"><div class="entry-header"><p-heading tag="h4" size="sm">${escape(analysis.id)} · ${escape(analysis.attachment_id)}</p-heading><p-tag class="document-status" variant="${analysis.status === 'accepted' ? 'success' : 'secondary'}">${escape({ pending: 'Aguardando revisão', accepted: 'Texto aceito', rejected: 'Texto rejeitado' }[analysis.status])}</p-tag></div>
+      <p-text size="sm">${escape(analysis.processor)} · ${escape(analysis.actor)} · ${escape(analysis.created_at)}</p-text><p-text size="sm">${escape(analysis.limitations)}</p-text>
+      <p-text size="sm">Identificadores reconhecidos: ${analysis.record_ids.map(escape).join(', ') || 'Nenhum'}.</p-text><p-text size="sm">Identificadores sem correspondência: ${analysis.unknown_ids.map(escape).join(', ') || 'Nenhum'}.</p-text>
+      <p-link-pure icon="none" href="/api/evidence/${encodeURIComponent(analysis.attachment_id)}" download>Baixar documento original · ${escape(analysis.attachment_id)}</p-link-pure>
+      ${analysis.review ? `<p-accordion><p-heading slot="summary" tag="h5" size="sm">Ler texto extraído · ${escape(analysis.id)}</p-heading><p-text class="technical document-text" size="sm" data-testid="document-text">${escape(analysis.text)}</p-text></p-accordion>` : `<section class="entry-content"><p-heading tag="h5" size="sm">Ler texto extraído · ${escape(analysis.id)}</p-heading><p-text class="technical document-text" size="sm" data-testid="document-text">${escape(analysis.text)}</p-text></section>`}
+      ${analysis.review ? `<p-text size="sm">Revisão: ${escape(analysis.review.actor)} · ${escape(analysis.review.reason)}</p-text>` : `<form class="form" data-endpoint="evidence/review" data-testid="document-review-${escape(analysis.id)}">${hidden('analysis_id', analysis.id)}${hidden('revision', analysis.revision)}
+        ${selectField(`document-outcome-${analysis.id}`, 'outcome', 'Decisão sobre o texto extraído', [['accepted', 'Aceitar texto como fonte'], ['rejected', 'Rejeitar texto']])}
+        <p-checkbox name="confirmed" value="true" label="Li o texto extraído, conferi o documento e os limites desta extração" required></p-checkbox>
+        ${auditFields(`document-${analysis.id}`)}<div class="actions"><p-button variant="secondary" icon="none" type="submit">Registrar revisão do texto</p-button></div>
+      </form>`}</section>`).join('')}
+  </section>`;
+}
+
 function caseAttachments() {
   if (!state.case) return '';
   return panel('Arquivos de evidência do caso', `${attachmentList((state.attachments || []).filter((item) => item.case_id === state.case.id))}
-    <p-accordion><p-heading slot="summary" tag="h3" size="sm">Anexar arquivo ao caso</p-heading>${attachmentUpload()}</p-accordion>`);
+    <p-accordion><p-heading slot="summary" tag="h3" size="sm">Anexar arquivo ao caso</p-heading>${attachmentUpload()}</p-accordion>${documentAnalysisPanel()}`);
 }
 
 function reportCase(item) {
@@ -739,12 +788,78 @@ function supervision(current) {
   </div>`;
 }
 
+const workStatuses = { planned: 'Planejado', in_progress: 'Em execução', completed: 'Concluído', cancelled: 'Cancelado' };
+const workPriorities = { low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente' };
+
+async function refreshWorkSummary() {
+  if (!state) return;
+  try { workSummary = await read('/api/work/summary'); workSummaryError = ''; }
+  catch (error) { workSummary = undefined; workSummaryError = error.message; if (error.status === 401) throw error; }
+}
+
+function workSummaryPanel() {
+  const summary = workSummary;
+  const duration = (seconds) => seconds === null || seconds === undefined ? 'Sem amostra' : `${Number(seconds).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} s`;
+  const timing = (title, value) => `<div class="decision-block"><p-heading tag="h3" size="sm">${title}</p-heading><p-text>Média ${duration(value.mean_seconds)} · Mediana ${duration(value.median_seconds)}</p-text><p-text size="sm">Amostra: ${value.completed_with_timing}/${value.completed_total} trabalhos concluídos. ${escape(value.definition)}</p-text></div>`;
+  return panel('Indicadores dos trabalhos', `${workSummaryError ? `<p-inline-notification state="error" heading="Indicadores indisponíveis" description="${escape(workSummaryError)}" dismiss-button="false"></p-inline-notification><form data-endpoint="work/summary"><p-button type="submit" variant="secondary" icon="none">Atualizar indicadores dos trabalhos</p-button></form>` : ''}
+    ${summary ? `<div class="stack" data-testid="work-summary"><p-text>${summary.total} trabalho(s) · ${summary.pending} pendente(s) · ${summary.overdue} atrasado(s)</p-text><p-text size="sm">${escape(summary.scope)}</p-text>
+      <p-text>Conclusão: ${summary.completion_rate.percent === null ? 'Sem amostra' : `${Number(summary.completion_rate.percent).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`} · ${summary.completion_rate.numerator}/${summary.completion_rate.denominator} trabalhos. ${escape(summary.completion_rate.definition)}</p-text>
+      <div class="form-grid">${timing('Tempo de tratamento', summary.treatment_time)}${timing('Tempo desde o planejamento', summary.lead_time)}</div>
+      <p-table caption="Trabalhos por prioridade" data-testid="work-priorities"><p-table-head><p-table-head-row>${['Prioridade', 'Total', 'Pendentes', 'Atrasados', 'Concluídos', 'Cancelados'].map((label) => `<p-table-head-cell>${label}</p-table-head-cell>`).join('')}</p-table-head-row></p-table-head><p-table-body>${summary.by_priority.map((row) => `<p-table-row><p-table-cell>${escape(workPriorities[row.priority])}</p-table-cell>${['total', 'pending', 'overdue', 'completed', 'cancelled'].map((key) => `<p-table-cell>${row[key]}</p-table-cell>`).join('')}</p-table-row>`).join('')}</p-table-body></p-table>
+      <p-text size="xs" color="contrast-high">Referência de prazo: ${escape(summary.today)} · ${escape(summary.timezone)} · Atualizado em ${escape(summary.as_of)}</p-text></div>` : ''}`);
+}
+
+function workForm(item = {}) {
+  const prefix = `work-${item.id || 'new'}`;
+  return `<form class="form" data-endpoint="work/${item.id ? 'update' : 'create'}" data-testid="${prefix}">
+    ${item.id ? hidden('id', item.id) + hidden('revision', item.revision) : ''}
+    ${field(`${prefix}-title`, 'title', 'Título do trabalho', 'text', item.title || '')}
+    ${paragraph(`${prefix}-description`, 'description', 'Objetivo e escopo do trabalho', item.description || '')}
+    <div class="form-grid">${field(`${prefix}-owner`, 'owner', 'Responsável pela execução', 'text', item.owner || '')}${field(`${prefix}-due`, 'due', 'Prazo do trabalho', 'date', item.due || '')}</div>
+    ${selectField(`${prefix}-priority`, 'priority', 'Prioridade do trabalho', Object.entries(workPriorities), item.priority || 'normal')}
+    ${paragraph(`${prefix}-priority-reason`, 'priority_reason', 'Justificativa da prioridade', item.priority_reason || '')}
+    <p-text size="sm">Casos relacionados são opcionais. O trabalho pode ser planejado independentemente de indícios. Selecione até 50 casos.</p-text>
+    ${cases().map((current) => `<p-checkbox name="case_ids" value="${escape(current.id)}" label="${escape(current.id)} · ${escape(current.title || 'Indício')}"${item.case_ids?.includes(current.id) ? ' checked' : ''}></p-checkbox>`).join('')}
+    ${auditFields(prefix)}<div class="actions"><p-button variant="secondary" icon="none" type="submit">${item.id ? 'Salvar trabalho' : 'Planejar trabalho'}</p-button></div>
+  </form>`;
+}
+
+function workStatusForm(item, status, label) {
+  return `<form class="form" data-endpoint="work/status" data-testid="work-${item.id}-${status}">
+    ${hidden('id', item.id)}${hidden('revision', item.revision)}${hidden('status', status)}
+    ${status === 'completed' ? paragraph(`work-result-${item.id}`, 'result', 'Resultado e entregas do trabalho') : ''}
+    ${auditFields(`work-${item.id}-${status}`)}<div class="actions"><p-button variant="secondary" icon="none" type="submit">${label}</p-button></div>
+  </form>`;
+}
+
+function workPanel() {
+  const items = state.work_items || [];
+  return panel('Trabalhos da 2ª Linha', `<p-text>Planeje e acompanhe trabalhos independentes, com responsável, prioridade justificada e resultado documentado. Os vínculos com casos não alteram suas decisões.</p-text>
+    <p-accordion><p-heading slot="summary" tag="h3" size="md">Planejar novo trabalho</p-heading>${workForm()}</p-accordion>
+    ${items.length ? items.map((item) => `<section class="stack" data-testid="work-item-${escape(item.id)}">
+      <div class="entry-header"><p-heading tag="h3" size="md">${escape(item.title)} · ${escape(item.id)}</p-heading><p-tag class="work-status" variant="${item.status === 'completed' ? 'success' : 'secondary'}">${escape(workStatuses[item.status])}</p-tag></div>
+      <p-text>${escape(item.description)}</p-text><p-text size="sm">Responsável: ${escape(item.owner)} · Prazo: ${escape(item.due)} · Prioridade ${escape(workPriorities[item.priority])}</p-text>
+      <p-text size="sm">Justificativa da prioridade: ${escape(item.priority_reason)}</p-text>
+      ${item.case_ids.length ? `<p-text-list>${item.case_ids.map((id) => `<p-text-list-item><p-link-pure icon="none" href="?case_id=${encodeURIComponent(id)}#inteligencia">Consultar ${escape(id)}</p-link-pure></p-text-list-item>`).join('')}</p-text-list>` : '<p-text size="sm">Trabalho sem caso vinculado.</p-text>'}
+      ${item.result ? `<p-text weight="semibold">Resultado: ${escape(item.result)}</p-text>` : ''}${item.cancellation_reason ? `<p-text>Motivo do cancelamento: ${escape(item.cancellation_reason)}</p-text>` : ''}
+      <p-text size="xs" color="contrast-high">Criado em ${escape(item.created_at)} · Atualizado em ${escape(item.updated_at)}</p-text>
+      ${['planned', 'in_progress'].includes(item.status) ? `<p-accordion><p-heading slot="summary" tag="h4" size="sm">Editar planejamento · ${escape(item.id)}</p-heading>${workForm(item)}</p-accordion>
+        <p-accordion><p-heading slot="summary" tag="h4" size="sm">${item.status === 'planned' ? 'Iniciar execução' : 'Concluir trabalho'} · ${escape(item.id)}</p-heading>${workStatusForm(item, item.status === 'planned' ? 'in_progress' : 'completed', item.status === 'planned' ? 'Iniciar trabalho' : 'Concluir trabalho')}</p-accordion>
+        <p-accordion><p-heading slot="summary" tag="h4" size="sm">Cancelar trabalho · ${escape(item.id)}</p-heading>${workStatusForm(item, 'cancelled', 'Cancelar trabalho')}</p-accordion>` : ''}
+    </section>`).join('') : '<p-text size="sm">Nenhum trabalho planejado.</p-text>'}`);
+}
+
+function accessAuditExport() {
+  if (session?.auth_required && !session.user?.roles.some((role) => ['auditor', 'reviewer', 'admin'].includes(role))) return '';
+  return `<div class="actions"><p-link variant="secondary" icon="none" href="/api/access-audit/export" download="elo-acessos.json">Exportar auditoria de acessos</p-link></div><p-text size="sm">Registro separado dos eventos de acesso capturados a partir da ativação desta funcionalidade. Não reconstrói acessos anteriores nem substitui a trilha das decisões.</p-text>`;
+}
+
 function governance() {
   const status = state.audit_valid ? '<p-tag variant="success">Integridade verificada</p-tag>' : '<p-tag variant="error">Falha de integridade</p-tag>';
   const eventList = state.audit.length ? `<p-text-list class="record-list audit">${[...state.audit].reverse().map(auditEvent).join('')}</p-text-list>` : '<p-text color="contrast-high">Nenhum evento registrado.</p-text>';
   const actions = state.actions.length ? `<p-text-list class="record-list">${state.actions.map(actionCard).join('')}</p-text-list>` : '<p-text color="contrast-high">Nenhum plano de ação registrado.</p-text>';
   return `${heading('Plano de ação e auditoria', 'Acompanhe recomendações e consulte quem decidiu o quê, quando e por quê.')}
-    <div class="grid"><div class="stack">${panel('Plano de ação', `${actions}${actionForm()}`)}${panel('Supervisão humana', supervision(state.case))}${supervisionPanel()}${caseAttachments()}${reportsPanel()}</div>${panel('Trilha de auditoria', '<div class="actions"><p-link variant="secondary" icon="none" href="/api/audit/export" download="elo-auditoria.json">Exportar pacote de auditoria</p-link></div><p-text size="sm" color="contrast-high">Pacote JSON dos registros sintéticos locais, com trilha e hashes SHA-256 para verificação independente de integridade. Não equivale a uma assinatura digital.</p-text>' + eventList, status)}</div>`;
+    <div class="grid">${workPanel()}${workSummaryPanel()}</div><div class="grid"><div class="stack">${panel('Plano de ação', `${actions}${actionForm()}`)}${panel('Supervisão humana', supervision(state.case))}${supervisionPanel()}${caseAttachments()}${reportsPanel()}</div>${panel('Trilha de auditoria', '<div class="actions"><p-link variant="secondary" icon="none" href="/api/audit/export" download="elo-auditoria.json">Exportar pacote de auditoria</p-link></div><p-text size="sm" color="contrast-high">Pacote JSON dos registros sintéticos locais, com trilha e hashes SHA-256 para verificação independente de integridade. Não equivale a uma assinatura digital.</p-text>' + accessAuditExport() + eventList, status)}</div>`;
 }
 
 function render() {
@@ -832,12 +947,18 @@ view.addEventListener('submit', async (event) => {
     const endpoint = form.getAttribute('data-endpoint');
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData);
+    if (endpoint === 'evidence/review') payload.confirmed = payload.confirmed === 'true';
+    if (endpoint === 'rule/config') {
+      payload.enabled = payload.enabled === 'true';
+      payload.min_code_length = Number(payload.min_code_length);
+      payload.excluded_contact_codes = payload.excluded_contact_codes.split(/\r?\n/).map((code) => code.trim()).filter(Boolean);
+    }
     if (endpoint === 'scenario/create') {
       payload.likelihood = Number(payload.likelihood);
       payload.impact = Number(payload.impact);
       payload.risk_revision = state.risks.find((item) => item.id === payload.risk_id)?.revision;
     }
-    if (endpoint === 'report/create') payload.case_ids = formData.getAll('case_ids');
+    if (['report/create', 'work/create', 'work/update'].includes(endpoint)) payload.case_ids = formData.getAll('case_ids');
     if (endpoint === 'evidence/upload') {
       const file = selectedFiles.get(form.getAttribute('data-upload-key'));
       if (!file) throw new Error('Selecione um arquivo de evidência antes de anexar.');
@@ -876,12 +997,16 @@ view.addEventListener('submit', async (event) => {
       selectedFiles.clear();
       insights = undefined;
       insightsError = '';
+      workSummary = undefined;
+      workSummaryError = '';
       supervisionResult = undefined;
       laboratoryResult = undefined;
+    } else if (endpoint === 'work/summary') {
+      await refreshWorkSummary();
     } else if (endpoint === 'insights/read') {
       await refreshInsights();
     } else if (endpoint === 'laboratory/run' || endpoint === 'supervision/read') {
-      if (endpoint === 'laboratory/run') laboratoryResult = await read('/api/laboratory');
+      if (endpoint === 'laboratory/run') laboratoryResult = await read(`/api/laboratory?rule_id=${encodeURIComponent(payload.rule_id || 'contact-code-match')}`);
       else supervisionResult = await read('/api/supervision');
     } else if (endpoint === 'select-case') {
       state = await read(`/api/state?case_id=${encodeURIComponent(payload.case_id)}`);
@@ -890,12 +1015,13 @@ view.addEventListener('submit', async (event) => {
         try { payload.dataset = JSON.parse(payload.dataset); }
         catch { throw new Error('A base deve conter um JSON válido. Revise o conteúdo antes de importar.'); }
         payload.synthetic = payload.synthetic === 'true';
-      } else if (state.case && !payload.case_id) payload.case_id = state.case.id;
+      } else if (state.case && !payload.case_id && !endpoint.startsWith('work/')) payload.case_id = state.case.id;
       state = await read(`/api/${endpoint}`, payload);
+      if (endpoint === 'rule/config') laboratoryResult = undefined;
       if (endpoint === 'evidence/upload') selectedFiles.delete(form.getAttribute('data-upload-key'));
       supervisionResult = undefined;
     }
-    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read'].includes(endpoint)) await refreshInsights();
+    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read', 'work/summary'].includes(endpoint)) await Promise.all([refreshInsights(), refreshWorkSummary()]);
     if (state) selectedCaseId = state.case?.id || null;
     const url = new URL(location.href);
     if (selectedCaseId) url.searchParams.set('case_id', selectedCaseId);

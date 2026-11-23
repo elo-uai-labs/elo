@@ -6,13 +6,16 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
-from domain import RULE, WorkflowError, match_cases, serialize, validate_dataset
+from domain import RULE, RULES, WorkflowError, match_cases, serialize, validate_dataset
 
 FIXTURE_PATH = Path(__file__).with_name("lab_fixture.json")
 
 
-def load_fixture():
-    return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+def load_fixture(rule_id="contact-code-match"):
+    if rule_id not in RULES:
+        raise ValueError("Regra desconhecida.")
+    path = FIXTURE_PATH if rule_id == RULE["id"] else FIXTURE_PATH.with_name("lab_supplier_fixture.json")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def validated_fixture(fixture):
@@ -23,7 +26,8 @@ def validated_fixture(fixture):
         if not all(isinstance(fixture[key], str) and fixture[key].strip()
                    for key in ("id", "version", "description")):
             raise ValueError("Identificação e versão do laboratório são obrigatórias.")
-        if fixture["expected_rule"] != {key: RULE[key] for key in ("id", "version")}:
+        rule = RULES[fixture["expected_rule"]["id"]]
+        if fixture["expected_rule"] != {key: rule[key] for key in ("id", "version")}:
             raise ValueError("O gabarito não corresponde à versão da regra avaliada.")
         dataset = validate_dataset(fixture["dataset"])
         contracts = [row["id"] for row in dataset["contracts"]]
@@ -77,7 +81,7 @@ def evaluate_predictions(fixture, detected_contract_ids):
     return {
         "fixture": {"id": fixture["id"], "version": fixture["version"],
                     "sha256": hashlib.sha256(serialize(fixture).encode("utf-8")).hexdigest()},
-        "rule": deepcopy(RULE), "unit": "contract",
+        "rule": deepcopy(RULES[fixture["expected_rule"]["id"]]), "unit": "contract",
         "scope": "Laboratório sintético: sinais plantados, sem conclusão de culpa. Resultados não estimam desempenho em dados reais.",
         "counts": {"total": len(contract_ids), "expected_positive": len(expected),
                    "predicted_positive": len(predicted), **counts},
@@ -87,23 +91,29 @@ def evaluate_predictions(fixture, detected_contract_ids):
     }
 
 
-def run_laboratory(fixture=None, detector=None):
-    fixture = deepcopy(load_fixture() if fixture is None else fixture)
+def run_laboratory(fixture=None, detector=None, rule_id="contact-code-match", config=None):
+    fixture = deepcopy(load_fixture(rule_id) if fixture is None else fixture)
     dataset, _, _ = validated_fixture(fixture)
-    cases = (match_cases if detector is None else detector)(deepcopy(dataset))
+    from rule_config import defaults, match
+    rule_id = fixture["expected_rule"]["id"]
+    config = defaults(rule_id) if config is None else deepcopy(config)
+    cases = match(deepcopy(dataset), rule_id, config) if detector is None else detector(deepcopy(dataset))
     try:
         contract_ids = [case["records"]["contract"]["id"] for case in cases]
     except (KeyError, TypeError) as error:
         raise ValueError("A detecção não identificou os contratos dos sinais.") from error
-    return evaluate_predictions(fixture, contract_ids)
+    result = evaluate_predictions(fixture, contract_ids)
+    result["rule"]["configuration"] = config
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Grava o resultado JSON neste arquivo novo, sem sobrescrever arquivos existentes.")
+    parser.add_argument("--rule-id", choices=list(RULES), default=RULE["id"])
     args = parser.parse_args()
     try:
-        encoded = json.dumps(run_laboratory(), ensure_ascii=False, indent=2) + "\n"
+        encoded = json.dumps(run_laboratory(rule_id=args.rule_id), ensure_ascii=False, indent=2) + "\n"
         if args.output:
             with args.output.open("x", encoding="utf-8") as target:
                 target.write(encoded)

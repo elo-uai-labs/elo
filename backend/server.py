@@ -17,13 +17,15 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import dossier
 import governance
 import reporting
+import work
 from access import AccessService
+from access_audit import AccessAudit
 from audit_export import build_export
 from domain import Store, WorkflowError, choice, require, required
 
 ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "elo_session"
-COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", "assistant/query", *governance.COMMANDS, *reporting.COMMANDS}
+COMMANDS = {"import", "detect", "dossier", "decision", "impact", "action", "action/update", "action/edit", "action/close", "evidence/upload", "scenario/create", "assistant/query", "evidence/analyze", "evidence/review", "rule/config", *governance.COMMANDS, *reporting.COMMANDS, *work.COMMANDS}
 
 
 class EloServer(ThreadingHTTPServer):
@@ -33,6 +35,7 @@ class EloServer(ThreadingHTTPServer):
     def __init__(self, address, store, static_dir=None, frontend_port=None, access_service=...):
         self.access = AccessService.from_environment() if access_service is ... else access_service
         self.store = store
+        self.access_audit = AccessAudit(store.path)
         self.static_dir = Path(static_dir).resolve() if static_dir else None
         self.frontend_port = frontend_port
         self.dossier_lock = Lock()
@@ -70,10 +73,61 @@ class EloServer(ThreadingHTTPServer):
             self.dossier_lock.release()
 
 
+    def analyze_document(self, data, authorize=None):
+        import document_analysis
+        actor = required(data, "actor", 80)
+        snapshot = self.store.read()
+        if authorize:
+            authorize(snapshot)
+        require(len(snapshot.get("document_analyses", [])) < 200, "Limite local de 200 análises atingido.")
+        metadata, content = self.store.evidence_file(required(data, "attachment_id", 32))
+        generated = document_analysis.extract(snapshot, metadata, content)
+        return self.store.apply("document/record", {"actor": actor, "case_id": metadata["case_id"], "analysis": generated}, authorize=authorize)
+
+
 class Handler(BaseHTTPRequestHandler):
     timeout = 10
 
+    def log_error(self, format, *args):
+        # Parser errors can contain the raw request line, including credentials.
+        self.log_message('HTTP request rejected')
+
+    def log_request(self, code='-', size='-'):
+        path = urlsplit(getattr(self, 'path', '')).path
+        safe_path = path if re.fullmatch(r'/[A-Za-z0-9/_-]{0,159}', path) else '/redacted'
+        command = getattr(self, 'command', None)
+        method = command if command in ('GET', 'POST', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'PATCH') else 'OTHER'
+        self.log_message('%s %s %s', method, safe_path, str(code))
+
+    def record_access(self, status):
+        path = urlsplit(self.path).path
+        if not path.startswith('/api/') or getattr(self, '_access_recorded', False):
+            return True
+        self._access_recorded = True
+        safe_path = path if re.fullmatch(r'/[A-Za-z0-9/_-]{0,159}', path) else '/api/invalid'
+        selected = parse_qs(urlsplit(self.path).query).get('case_id', [''])[0]
+        if selected and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', selected) and len(safe_path) + len(selected) < 150:
+            safe_path += '/case/' + selected
+        user = getattr(self, '_audit_user', None)
+        mode = 'local-auth' if user else 'anonymous' if self.server.access else 'local-demo'
+        actor = user['id'] if user else 'anonymous' if self.server.access else 'local-demo'
+        event = ('login' if path == '/api/login' else 'logout' if path == '/api/logout' else
+                 'denial' if status in (401, 403) else 'export' if path.endswith('/export') else
+                 'download' if re.fullmatch(r'/api/evidence/EVD-[0-9]{4}', path) else
+                 'read' if self.command == 'GET' else 'write')
+        try:
+            self.server.access_audit.append(actor=actor, mode=mode, event=event, target=safe_path,
+                outcome='success' if status < 400 else 'denied' if status in (401, 403, 429) else 'error',
+                ip=self.client_address[0])
+            return True
+        except (sqlite3.Error, ValueError, TypeError, KeyError, OverflowError):
+            return False
+
     def send(self, status, content_type, payload, cookie=None, download=None):
+        if not self.record_access(status):
+            status, content_type = 503, 'application/json; charset=utf-8'
+            payload = json.dumps({'error': 'Trilha de acesso indisponível. A resposta foi bloqueada; confira o estado antes de repetir uma alteração.'}).encode()
+            cookie = download = None
         self.send_response(status)
         if cookie is not None:
             self.send_header("Set-Cookie", cookie)
@@ -110,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.server.access:
             return None
         user = self.server.access.session(self.session_token())
+        if user:
+            self._audit_user = user
         if required and not user:
             raise WorkflowError("Entre para continuar. Sua sessão pode ter expirado.", 401)
         return user
@@ -144,6 +200,7 @@ class Handler(BaseHTTPRequestHandler):
         return origin is None or origin in allowed
 
     def do_GET(self):
+        self._audit_user, self._access_recorded = None, False
         if not self.valid_host():
             self.send_json(403, {"error": "Use o endereço local do Elo."})
             return
@@ -164,6 +221,13 @@ class Handler(BaseHTTPRequestHandler):
                 from evidence import download_filename
                 metadata, content = self.server.store.evidence_file(path.rsplit("/", 1)[-1])
                 self.send(200, metadata["media_type"], content, download=download_filename(metadata))
+            except WorkflowError as error:
+                self.send_json(error.status, {"error": str(error)})
+            except sqlite3.Error:
+                self.send_json(503, {"error": "Banco indisponível. Tente novamente."})
+        elif path == "/api/work/summary":
+            try:
+                self.send_json(200, work.summary(self.server.store.read()))
             except WorkflowError as error:
                 self.send_json(error.status, {"error": str(error)})
             except sqlite3.Error:
@@ -197,8 +261,30 @@ class Handler(BaseHTTPRequestHandler):
             except sqlite3.Error:
                 self.send_json(503, {"error": "Banco indisponível. Tente novamente."})
         elif path == "/api/laboratory":
-            import laboratory
-            self.send_json(200, laboratory.run_laboratory())
+            try:
+                import laboratory
+                import rule_config
+                rule_id = parse_qs(urlsplit(self.path).query).get("rule_id", ["contact-code-match"])[0]
+                snapshot = self.server.store.read()
+                require(snapshot["audit_valid"], "A integridade da trilha precisa ser verificada.")
+                config = rule_config.get_config(snapshot, rule_id)
+                self.send_json(200, laboratory.run_laboratory(rule_id=rule_id, config=config))
+            except WorkflowError as error:
+                self.send_json(error.status, {"error": str(error)})
+            except sqlite3.Error:
+                self.send_json(503, {"error": "Banco indisponível. Tente novamente."})
+        elif path == "/api/access-audit/export":
+            try:
+                if self.server.access:
+                    self.server.access.authorize(user, 'access-audit/export')
+                if not self.record_access(200):
+                    self.send_json(503, {"error": "Trilha de acesso indisponível."})
+                    return
+                self.send_json(200, self.server.access_audit.export())
+            except WorkflowError as error:
+                self.send_json(error.status, {"error": str(error)})
+            except (ValueError, sqlite3.Error, TypeError, KeyError, OverflowError):
+                self.send_json(503, {"error": "Trilha de acesso indisponível."})
         elif path == "/api/audit/export":
             try:
                 self.send_json(200, build_export(self.server.store.export_state(include_files=True)))
@@ -227,6 +313,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(404, {"error": "Página não encontrada."})
 
     def do_POST(self):
+        self._audit_user, self._access_recorded = None, False
         if not self.valid_host() or not self.valid_origin():
             self.send_json(403, {"error": "Origem inválida."})
             return
@@ -236,11 +323,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(404, {"error": "Ação não encontrada."})
             return
         try:
+            # Preflight rejects an already corrupt/unavailable ledger before side effects.
+            # Business changes keep their own transactional audit; the HTTP receipt is separate.
+            try:
+                self.server.access_audit.export()
+            except (ValueError, sqlite3.Error, TypeError, KeyError, OverflowError) as error:
+                raise WorkflowError("Verifique a integridade da trilha de acesso antes de continuar.", 503) from error
             user = self.current_user() if command != "login" else None
             if self.headers.get_content_type() != "application/json":
                 raise WorkflowError("Use application/json.", 415)
             length = int(self.headers.get("Content-Length", "0"))
-            if length > (1500000 if command == "evidence/upload" else 524288 if command == "import" else 65536 if command in governance.COMMANDS else 8192):
+            if length > (1500000 if command == "evidence/upload" else 524288 if command == "import" else 65536 if command in governance.COMMANDS | work.COMMANDS | {"rule/config"} else 8192):
                 raise WorkflowError("O pedido é grande demais.", 413)
             if length <= 0:
                 raise ValueError
@@ -250,6 +343,7 @@ class Handler(BaseHTTPRequestHandler):
             if command == "login":
                 require(self.server.access is not None, "Autenticação local não configurada.")
                 token, user = self.server.access.login(data.get("username"), data.get("password"))
+                self._audit_user = user
                 self.server.access.logout(self.session_token())
                 self.send_json(200, self.session_state(user), cookie=self.session_cookie(token))
                 return
@@ -261,7 +355,9 @@ class Handler(BaseHTTPRequestHandler):
             if user:
                 data["actor"] = user["id"]
             authorize = self.authorizer(command, data)
-            if command == "assistant/query":
+            if command == "evidence/analyze":
+                state = self.server.analyze_document(data, authorize=authorize)
+            elif command == "assistant/query":
                 state = self.server.consult(data, authorize=authorize)
             elif command == "dossier":
                 state = self.server.summarize(choice(data, "mode", ("local", "real")), data.get("case_id"),

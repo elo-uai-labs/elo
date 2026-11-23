@@ -120,6 +120,9 @@ def normalize(state):
     state.setdefault("scenarios", [])
     state.setdefault("integration_batches", [])
     state.setdefault("assistant_queries", [])
+    state.setdefault("document_analyses", [])
+    import work
+    work.normalize(state)
     reporting.normalize(state)
     return governance.normalize(state)
 
@@ -139,7 +142,8 @@ def presentation(state, case_id=None):
     result = normalize(deepcopy(state))
     result["case"] = selected_case(result, case_id)
     processed = (result["detection"] or {}).get("processed_by_rule", {})
-    result["rules"] = [{**deepcopy(rule), "pending_count": sum(row["id"] not in processed.get(identifier, []) for row in result["dataset"]["contracts"]),
+    import rule_config
+    result["rules"] = [{**rule_config.snapshot(result, identifier), "pending_count": sum(row["id"] not in processed.get(identifier, []) for row in result["dataset"]["contracts"]),
                        "completed": identifier in processed} for identifier, rule in RULES.items()]
     if result["case"]:
         import governance
@@ -203,6 +207,15 @@ def transition(state, command, data):
     normalize(state)
     import governance
     import reporting
+    import work
+    if command in ("document/record", "evidence/review"):
+        import document_analysis
+        return document_analysis.record(state, data) if command == "document/record" else document_analysis.review(state, data)
+    if command == "rule/config":
+        import rule_config
+        return rule_config.save(state, data)
+    if command in work.COMMANDS:
+        return work.transition(state, command, data)
     if command == "assistant/record":
         import consultation
         return consultation.record(state, data)
@@ -251,14 +264,16 @@ def transition(state, command, data):
             "record_ids": {key: [row["id"] for row in rows] for key, rows in incoming.items()}}
     if command == "detect":
         rule_id = choice(data, "rule_id", RULES) if "rule_id" in data else RULE["id"]
-        rule = RULES[rule_id]
+        import rule_config
+        configuration = rule_config.get_config(state, rule_id)
+        require(configuration["enabled"], "A regra está desativada. Revise os parâmetros antes de executar.")
+        rule = rule_config.snapshot(state, rule_id)
         processed_by_rule = deepcopy((state["detection"] or {}).get("processed_by_rule", {}))
         processed = set(processed_by_rule.get(rule_id, []))
         pending = [row for row in state["dataset"]["contracts"] if row["id"] not in processed]
         require(rule_id not in processed_by_rule or pending, "A detecção já foi executada para todos os contratos desta regra. Importe novos registros.")
-        matcher = match_cases if rule_id == RULE["id"] else match_supplier_cases
         known_ids = {item["id"] for item in state["cases"]}
-        matches = [item for item in matcher({**state["dataset"], "contracts": pending}) if item["id"] not in known_ids]
+        matches = [item for item in rule_config.match({**state["dataset"], "contracts": pending}, rule_id, configuration) if item["id"] not in known_ids]
         state["cases"].extend(matches)
         state["case"] = state["cases"][0] if state["cases"] else None
         processed_by_rule[rule_id] = [row["id"] for row in state["dataset"]["contracts"]]

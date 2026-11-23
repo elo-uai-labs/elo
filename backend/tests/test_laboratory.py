@@ -9,6 +9,24 @@ from laboratory import evaluate_predictions, load_fixture, run_laboratory
 
 
 class LaboratoryTest(unittest.TestCase):
+    def test_supplier_ground_truth_and_configured_exclusions(self):
+        from rule_config import defaults
+        from domain import match_supplier_cases
+        rule_id = 'supplier-shared-contact'
+        result = run_laboratory(rule_id=rule_id)
+        self.assertEqual(result['counts'], {'total': 6, 'expected_positive': 2, 'predicted_positive': 2, 'tp': 2, 'fp': 0, 'fn': 0, 'tn': 4})
+        config = {**defaults(rule_id), 'excluded_contact_codes': ['SHARED']}
+        excluded = run_laboratory(rule_id=rule_id, config=config)
+        self.assertEqual(excluded['counts']['fn'], 2)
+        self.assertEqual(excluded['fixture'], result['fixture'])
+        def mutated(dataset):
+            cases = match_supplier_cases(dataset)
+            cases.pop()
+            cases.append({'records': {'contract': {'id': 'CTR-LAB-SC'}}})
+            return cases
+        faulty = run_laboratory(rule_id=rule_id, detector=mutated)
+        self.assertEqual((faulty['counts']['fp'], faulty['counts']['fn']), (1, 1))
+
     def test_fixed_ground_truth_and_repeatability(self):
         fixture = load_fixture()
         original = copy.deepcopy(fixture)
