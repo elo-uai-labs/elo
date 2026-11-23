@@ -35,3 +35,16 @@ O registro `docs/trl5/execucao.md` ainda tinha estados iniciais durante a revis�
 - `scripts/trl-evaluation-regression.py`: `cb65ebad452b5fcc6c6c84f4625232696e719ce6d026b3f9afdec8d31a8e560e`.
 - `tests/fixtures/trl-evaluation/ai.json`: `a28068b898a524433d9eb4e8fe37a733d591f52b3314905814eadaf6e1c06a59`.
 - `tests/fixtures/trl-evaluation/ocr.json`: `e67fef8e45a6c54522c62be2d74c687c7977c49a401e662762533280c94d40ca`.
+
+## Delta final: interrupção transacional e pacote
+
+Revisados `a4ef5f9` e `e6ed7ff` (snapshot `e6ed7ff972bba613c8edd086d1f17d21d3784189`), sem mudança de runtime. Sem bloqueador de correção encontrado.
+
+O ensaio de interrupção cria seu próprio diretório temporário e recusa banco externo. Worker limitado ao layout temporário conhecido, sem symlink de banco/marcador. Trigger existe apenas na cópia descartável e pausa antes do UPDATE de workflow, depois do INSERT de auditoria no fluxo normal de Store.apply. SIGKILL provoca rollback; a comparação completa exige que não sobrevivam nem workflow nem evento não confirmados. Removido o trigger, repetição gera exatamente um trabalho/um evento. Cleanup encerra o worker mesmo em falha. Executei independentemente `.venv/bin/python3 scripts/trl-crash-transaction.py`: passou, SQLite íntegro e hashes de snapshots idênticos. Isso acrescenta interrupção no meio da transação SQLite; não comprova corte elétrico, corrupção de disco, atomicidade do recibo HTTP ou RPO produtivo.
+
+O empacotador seleciona documentos/relatórios obrigatórios e o diretório versionado de fixtures sintéticas. Recusa arquivo ausente, symlink, saída de ROOT e padrão reconhecível de chave OpenAI. Não percorre `.env`, banco ou logs arbitrários. Preserva resultados iniciais falhos e regressão separada; manifesto inclui hashes/bytes, commit e estado dirty, sem classificação automática de TRL. O ZIP é reaberto para conferir CRC, conjunto de entradas e hashes. Revisão estática: geração final depende da conclusão/acceptance ainda em preparação e deve ser executada no fechamento, sem alegar que esta revisão já gerou o pacote.
+
+Hashes do delta:
+
+- `scripts/trl-crash-transaction.py`: `ccc1fe39e0220937e502eceed1c1d12df571bb7488978f9b6e0e243d78cc2e7b`.
+- `scripts/trl-bundle.py`: `63f14c43dc2d6d62b873be887dc4e5354ee77d4e9b606fd8cabcdf4864800741`.
