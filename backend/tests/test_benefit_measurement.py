@@ -29,7 +29,7 @@ class BenefitTests(unittest.TestCase):
     def test_bad_pairs_and_measurements_rejected(self):
         for field, value in [('sample_sha256', 'b'*64), ('participant_id', 'other'),
                              ('order', '1'), ('required_facts', '0'), ('human_minutes', 'nan'),
-                             ('corrections', '1.5'), ('complete_facts', '5'), ('synthetic', 'false')]:
+                             ('wait_minutes', None), ('corrections', '1.5'), ('complete_facts', '5'), ('synthetic', 'false')]:
             rows = copy.deepcopy(self.pair())
             rows[1][field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):

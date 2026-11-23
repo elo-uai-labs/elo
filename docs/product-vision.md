@@ -19,14 +19,20 @@ O desenvolvimento completo inclui P0, P1 e P2 abaixo. Uma sprint concluída não
 - **Dependência externa:** aceite depende de acesso, metodologia ou decisão externa; registrar separadamente o que pode ser desenvolvido localmente.
 - **Aprovado no checkpoint:** evidência do escopo e versão especificados; não estende o aceite automaticamente a mudanças posteriores nem ao produto inteiro.
 
-Checkpoint atual: **S1 `fb98394`, S2 `4dfb5b5`, S3 `7a86178`, S4 `5c8958a` e S5 `74e512e` aprovados, somente locais**. S6 (consulta governada e backup/restauração) aprovado localmente: 116 testes backend, jornadas canônicas/autenticadas e IA Apple real; evidências em `entrega.md`. A numeração dos checkpoints descreve entregas incrementais executadas e **não equivale à numeração das sprints planejadas abaixo**: em particular, checkpoint S5 não significa realização da sprint de piloto externo. Login corporativo, fonte real e hospedagem permanecem a definir. Produto completo e piloto real não estão concluídos.
+Checkpoints históricos: **S1 `fb98394`, S2 `4dfb5b5`, S3 `7a86178`, S4 `5c8958a` e S5 `74e512e` aprovados, somente locais**. S6 (consulta governada e backup/restauração) aprovado localmente: 116 testes backend, jornadas canônicas/autenticadas e IA Apple real; evidências em `entrega.md`. A numeração dos checkpoints descreve entregas incrementais executadas e **não equivale à numeração das sprints planejadas abaixo**: em particular, checkpoint S5 não significa realização da sprint de piloto externo. Login corporativo, fonte real e hospedagem permanecem a definir. Produto completo e piloto real não estão concluídos.
+
+## Retomada de 23/11 · fechamento local
+
+A rodada anterior entregou importação CSV/XLSX, extração PDF/planilhas, OCR experimental revisado, OpenAI real, correlação, operação de equipes e terceira regra experimental. Evidências e limites atuais em [entrega](entrega.md); os checkpoints abaixo preservam sua data/escopo, não descrevem sozinhos o estado mais recente.
+
+Execução atual: [registro de fechamento](product-vision-closure.md). Amplia supervisão, medição de consumo, instrumento de benefício e ensaio sustentado. Só marcar aceite dessas alterações após testes/revisões. O produto corporativo permanece dependente dos itens externos identificados, mesmo com o escopo local aprovado.
 
 ## Matriz P0 · demonstração integrada
 
 | ID | Requisito e aceite observável | Estado atual e lacuna | Sprint / evidência necessária |
 | --- | --- | --- | --- |
 | P0-01 | Carregar empregados, fornecedores e contratos sintéticos relacionados; padrão positivo conhecido | Aprovado S1: importação incremental e validação atômica | S1: testes de entrada válida, IDs duplicados e referências inválidas; revalidar alterações posteriores |
-| P0-02 | Regra executável identifica coincidência entre fornecedor e aprovador; resultado explica critérios e versão | Duas regras determinísticas aprovadas no checkpoint S5: aprovador e cadastro compartilhado entre fornecedores | Versões, positivos/negativos, ausência de sinais e repetição; indício não prova culpa |
+| P0-02 | Regra executável identifica coincidência entre fornecedor e aprovador; resultado explica critérios e versão | Três regras locais: aprovador, cadastro compartilhado e perfil contratual repetido (experimental); terceira validada na rodada paralela | Versões, positivos/negativos, ausência de sinais e repetição; indício não prova culpa |
 | P0-03 | Dossiê com IA real e fontes; modelo/prompt registrados; erro não disfarçado de síntese local | Dossiê estruturado v3/v4 com IA real aprovado até checkpoint S6 | Fontes por afirmação e metadados preservados; associação não prova sustentação semântica |
 | P0-04 | Analista aceita, ajusta ou rejeita; descarta, monitora ou qualifica; responsável e justificativa obrigatórios | Decisões por caso e identidade local autenticada aprovadas S3 | Justificativa, revisão de dossiê e ator canônico; identidade corporativa a definir |
 | P0-05 | Fragilidade cria proposta fundamentada de revisão do risco, sem alteração automática | Aprovado S2: catálogos, vínculos, controle de versão e jornada na interface | Teste impede reduzir risco Crítica após sinal adverso; propostas obsoletas rejeitadas |
@@ -44,13 +50,13 @@ Checkpoint atual: **S1 `fb98394`, S2 `4dfb5b5`, S3 `7a86178`, S4 `5c8958a` e S5 
 
 | ID | Requisito e aceite observável | Estado atual | Dependência / sprint |
 | --- | --- | --- | --- |
-| P1-01 | Múltiplas tipologias de alertas, cada regra com versão, parâmetros e explicação | Duas tipologias executáveis aprovadas S5 | Regra de aprovador e regra de fornecedores compartilhando código; parâmetros determinísticos explícitos |
+| P1-01 | Múltiplas tipologias de alertas, cada regra com versão, parâmetros e explicação | Três tipologias locais com laboratório independente; terceira experimental | Parâmetros versionados; perfil repetido compara fornecedor/aprovador/título e não infere duplicidade financeira |
 | P1-02 | Integrações reais autorizadas, com contrato de dados, origem, reconciliação, erro e repetição segura | Dependência externa | S5; autorização, credenciais, amostra e contrato fornecidos pelo titular; adaptadores sintéticos podem anteceder acesso |
 | P1-03 | Metodologia oficial de maturidade da CAIXA com versões e rastreabilidade | Dependência externa | S2 prepara motor configurável; S5 aplica metodologia fornecida e homologa resultados |
 | P1-04 | Perfis/permissões no backend, segregação e identidade verificável | Autenticação local opcional e permissões integradas aprovadas S3 | Provedor corporativo a definir; sem contas padrão, sem SSO homologado |
 | P1-05 | Relatórios gerenciais com IA; cada frase factual ligada à evidência | Relatório governado aprovado S4: reutiliza claims de dossiês revisados | Não faz nova chamada de IA; preserva fontes, modelo, prompt, ressalvas e decisão humana; revisão independente e CAS |
 | P1-06 | Pacotes completos e verificáveis de auditoria | Pacote v2 com estado, eventos, manifesto e bytes dos anexos aprovado S4 | Verificador externo à aplicação, cobertura exata e compatibilidade v1 sem arquivos; sem assinatura externa |
-| P1-07 | Painel de supervisão: concordância, discordância/motivos e alerta de possível aprovação automática | Supervisão implementada e integrada; proveniência de identidade corrigida S3 | Denominadores real/local e históricos separados; heurística não prova automação; filtros avançados não implementados |
+| P1-07 | Painel de supervisão: concordância, discordância/motivos e alerta de possível aprovação automática | Supervisão implementada e integrada; proveniência de identidade corrigida S3 | Denominadores real/local e históricos separados; heurística não prova automação; filtros avançados em execução nesta retomada; ver registro de fechamento |
 | P1-08 | Laboratório sintético com gabarito e medição de acertos/falsos alarmes | Laboratório sintético reproduzível implementado; gabarito independente e métricas por regra | TP/FP/FN/TN e denominadores explícitos; testes alteram resultados para provar contagem; não estima desempenho real |
 | P1-09 | GRC completo: criar/editar riscos, controles, vínculos, tratamento e revisões | Aprovado no checkpoint local S2 | Entidades identificáveis, histórico, arquivamento preservando relações e aprovação dos impactos |
 | P1-10 | Maturidade: dimensões, questionário, evidências, lacunas e avaliação versionada | Aprovado no checkpoint local S2 com metodologia ilustrativa | Resultado reproduzível; metodologia oficial continua dependência externa |
@@ -58,7 +64,7 @@ Checkpoint atual: **S1 `fb98394`, S2 `4dfb5b5`, S3 `7a86178`, S4 `5c8958a` e S5 
 
 ## Matriz P2 · escala e evolução comercial
 
-| ID | Requisito e aceite observável | Estado inicial | Dependência / sprint |
+| ID | Requisito e aceite observável | Estado atual | Dependência / sprint |
 | --- | --- | --- | --- |
 | P2-01 | Integrações adicionais e monitoramento recorrente | Conector sintético por pasta e execução recorrente opcional aprovados S5; integrações reais externas | CLI explícita, idempotência e falha/repetição; nenhum agendamento instalado, nenhuma fonte real conectada |
 | P2-02 | Análise de vínculos e tendências, com critérios explicáveis | Vínculos e tendências explicáveis aprovados S5 | Critérios determinísticos, fontes e eventos de integração incluídos; não inferem culpa |
@@ -94,7 +100,7 @@ As sprints organizam o trabalho técnico. Não substituem os cinco marcos contra
 | Segurança corporativa/nuvem | Revisões defensivas e documentação do ambiente local | Anexo de requisitos, ambiente-alvo e avaliação técnica; não declarar conformidade antecipada |
 | Escala | Medições locais com limites documentados | Volumes, concorrência, disponibilidade e infraestrutura-alvo acordados |
 | Licenças/custos/horas | Inventário da stack e premissas de esforço por sprint | Dimensionamento, fornecedores/modelos e licenças de distribuição verificadas; nenhuma estimativa validada ainda |
-| Benefício operacional | Definir tarefas comparáveis antes/depois, duração, retrabalho e completude | Medição com usuários; não prometer redução percentual sem evidência |
+| Benefício operacional | Instrumento CSV/CLI de pares baseline/Elo preparado; valida equivalência, tempo, retrabalho e completude | Medição com usuários; não prometer redução percentual sem evidência |
 | Vídeo, anexos e submissão | Roteiro de demonstração apoiado em funcionalidades comprovadas | Solicitação específica, revisão humana e autorização de publicação/envio; datas do documento não acionam esses atos |
 
 Público usuário: analistas e gestores da 2ª Linha. Comprador pretendido no documento: CAIXA no contexto do CPSI. Hipótese de valor: reduzir reunião manual de evidências e tornar decisões/impactos rastreáveis. Esta execução técnica não conclui análise comercial, comparação de concorrentes ou precificação.
@@ -138,8 +144,8 @@ S6 aprovado localmente: consulta por fontes selecionadas do caso, resposta local
 Além do aceite final da evolução orientada ao edital descrita abaixo, o piloto corporativo exige provedor, fonte e hospedagem definidos/autorizados, metodologia oficial e metas operacionais acordadas. A entrega local não substitui essas dependências nem comprova produto completo.
 
 
-### Evolução orientada ao edital · backend validado, interface em validação
+### Registro histórico da evolução orientada ao edital
 
-A leitura do TR e dos critérios identificou lacunas locais adicionais, registradas na [matriz operacional](edital-execution.md); elas não foram convertidas artificialmente em dependências externas. Implementados: trabalhos/demandas da 2ª Linha, configuração versionada de ambas as regras, laboratório independente para cada tipologia, extração literal de TXT UTF-8 até 32 KiB com revisão humana e reutilização de trechos aceitos no assistente, trilha HTTP independente e inclusão verificada no backup. Os estados de aprovação S1–S6 acima descrevem checkpoints anteriores; as novas interfaces ainda passam pelo aceite ampliado.
+A leitura do TR e dos critérios identificou lacunas locais adicionais, registradas na [matriz operacional](edital-execution.md); elas não foram convertidas artificialmente em dependências externas. Implementados: trabalhos/demandas da 2ª Linha, configuração versionada de ambas as regras, laboratório independente para cada tipologia, extração literal de TXT UTF-8 até 32 KiB com revisão humana e reutilização de trechos aceitos no assistente, trilha HTTP independente e inclusão verificada no backup. Os estados de aprovação S1–S6 acima descrevem checkpoints anteriores; as interfaces foram posteriormente aprovadas localmente e ampliadas com PDF/planilhas/OCR, conforme entrega.md. Este parágrafo preserva o escopo do registro original.
 
 O orquestrador informou 147 testes backend aprovados. Revisões DBA/segurança dos novos trechos e testes específicos não encontraram bloqueador no escopo local; medições e hashes constam em `edital-execution.md`. Nenhum aceite final de frontend, orçamento calculado, piloto corporativo ou conformidade foi inferido desses resultados. O plano experimental e o CSV de custos contêm métodos, fórmulas e premissas por validar; TRL 4 é autoavaliação proposta, não certificação externa.

@@ -12,6 +12,10 @@ O TR 4.1 limita o MVP à experimentação; validação não implica produção o
 
 Há inconsistência de referência de anexo no próprio texto extraído: índice/6.1 citam modelo de proposta no Anexo II e 6.2 remete ao Anexo III. Antes de qualquer submissão, conferir o modelo eletrônico disponibilizado no portal e eventuais esclarecimentos oficiais; não produzir uma submissão baseada nessa ambiguidade.
 
+## Atualização de estado · 23/11
+
+A matriz abaixo conserva o histórico do edital. As lacunas locais E01–E07 tiveram aceite posterior registrado em entrega.md: três regras (uma experimental), importação CSV/XLSX, PDF digital/planilhas e OCR local revisado, além de operação de equipes. Menções históricas a “PDF/OCR não implementados” não representam o estado atual. E08–E14 continuam com dependências institucionais/comerciais; o instrumento de benefício foi ampliado em benefit-measurement.md. A rodada adicional está em product-vision-closure.md.
+
 ## Estado de partida
 
 O projeto já tem fluxo local integrado de sinais, GRC, maturidade ilustrativa, decisões humanas, planos, evidências, relatórios revisados, consultas, exportação e recuperação. Identidade local opcional, duas regras determinísticas e conector de pasta não são equivalentes a SSO, metodologia oficial ou integração corporativa. Aprovações dos checkpoints anteriores são registradas em `entrega.md` e não antecipam aprovação das alterações desta execução.

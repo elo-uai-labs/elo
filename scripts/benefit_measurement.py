@@ -15,7 +15,7 @@ FIELDS = ['pair_id', 'participant_id', 'task_id', 'sample_sha256', 'phase',
 def summarize(rows):
     pairs = {}
     for number, raw in enumerate(rows, 2):
-        if any(not str(raw.get(k, '')).strip() for k in FIELDS):
+        if any(not isinstance(raw.get(k), str) or not raw[k].strip() for k in FIELDS):
             raise ValueError(f'Linha {number}: campos obrigatórios vazios')
         row = dict(raw)
         if row['phase'] not in ('baseline', 'elo') or row['order'] not in ('1', '2'):
