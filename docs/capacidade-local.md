@@ -54,4 +54,22 @@ O runtime `64de64f1b64d09420d168c22e27b0d1f21aa50d5` libera a transação SQLite
 
 As 2.551 tentativas resultaram em 2.551 eventos HTTP, sem erro do ledger observado. Estado de negócio inalterado, cadeias válidas e `integrity_check=ok`. O pico de RSS amostrado foi 346.304 KiB no cenário c8; sua resposta máxima tinha 3.890.868 bytes. No c4 ampliado, vazão 11,25 req/s e máximo 1,096 s; no c8, vazão 11,21 req/s e máximo 4,563 s. A maior concorrência não aumentou a vazão nessa amostra e elevou a cauda de latência.
 
-A repetição eliminou os erros observados na rodada anterior e melhorou a leitura no cenário c4, mas **o aceite conjunto de capacidade continua reprovado pelo pico c8**. Não aumentamos timeout nem alteramos a meta para aprovar o resultado. A comparação é uma repetição de protocolo local, não experimento rigorosamente controlado: a maior vazão produziu mais eventos de acesso durante a segunda execução. O primeiro limite observado agora é a latência no pico c8. Próximo trabalho concreto: reduzir payload/projeções por consulta e investigar contenção da trilha preservando sua verificação; depois repetir os mesmos cenários. Nenhuma capacidade produtiva foi homologada.
+A repetição eliminou os erros observados na rodada anterior e melhorou a leitura no cenário c4, mas **naquela repetição o aceite conjunto continuava reprovado pelo pico c8**. Não aumentamos timeout nem alteramos a meta para aprovar o resultado. A comparação é uma repetição de protocolo local, não experimento rigorosamente controlado: a maior vazão produziu mais eventos de acesso durante a segunda execução. O primeiro limite observado naquela repetição foi a latência no pico c8. Próximo trabalho concreto: reduzir payload/projeções por consulta e investigar contenção da trilha preservando sua verificação; depois repetir os mesmos cenários. Nenhuma capacidade produtiva foi homologada.
+
+## Aceite após coordenação dos escritores HTTP
+
+Runtime `e72d5be81fc61dcc5092d21b674c8d72a3ba72ee`: os appends da mesma instância de `AccessAudit` são coordenados por lock antes da conexão/transação. A validação integral da cadeia, a transação SQLite e o timeout de cinco segundos foram preservados. Instâncias/processos diferentes continuam coordenados pelo SQLite.
+
+O protocolo completo de 120 segundos foi repetido e **todos os cenários passaram na meta local original**, conforme `output/validation/capacity-local-coordinated.json`:
+
+| Cenário | Requisições | p95 | Máximo | Erros |
+| --- | ---: | ---: | ---: | ---: |
+| 200 contratos, c1 | 139 | 0,021 s | 0,040 s | 0 |
+| 200 contratos, c4 | 699 | 0,073 s | 0,214 s | 0 |
+| 200 contratos + 250 revisões, c4 | 792 | 0,087 s | 0,371 s | 0 |
+| 2.000 contratos + histórico, c4 | 705 | 0,316 s | 0,386 s | 0 |
+| Mesma base, pico c8 | 173 | 0,792 s | 1,036 s | 0 |
+
+Foram 2.508 requisições e exatamente 2.508 eventos HTTP, nenhum diagnóstico de falha da trilha, estado de negócio inalterado, cadeias válidas e SQLite íntegro. RSS máximo amostrado de 341.248 KiB. Na base ampliada, a vazão foi 11,68 req/s em c4 e 11,30 req/s em c8. O lock reduziu a cauda observada nesta amostra; a maior concorrência continua sem aumentar a vazão, portanto não há evidência de capacidade ilimitada. Nenhuma meta ou timeout foi relaxado e os relatórios anteriores permanecem disponíveis.
+
+**Aceite: aprovado somente para o protocolo sintético local declarado.** Capacidade produtiva, durações maiores, crescimento além do histórico medido, carga externa, renderização máxima e integração corporativa continuam sem homologação. Otimização de payload e custo da verificação integral continuam pontos de acompanhamento para dimensionar um piloto, não falhas ocultas deste resultado.
