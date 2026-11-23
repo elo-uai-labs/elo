@@ -152,3 +152,7 @@ No macOS com Swift/SDK, execute `npm run setup:ocr`. Em Plano e auditoria, anexe
 A terceira [tipologia experimental de perfil contratual repetido](docs/tipologia-perfil-repetido.md) compara contratos distintos por fornecedor, aprovador e título normalizado, sem inferir duplicidade financeira. Os sinais e decisões permanecem separados. O [bloqueio explícito de ambientes não suportados e exigência opcional de login](docs/runtime-local.md) evita inicialização em produção declarada ou em demo quando autenticação foi exigida; não representa prontidão corporativa.
 
 O [painel operacional](docs/operacao-equipes.md) oferece avisos in-app, filtros, SLA e recorrência. A [avaliação IA/OCR](docs/avaliacao-ia-ocr.md) distingue métricas automáticas de revisão semântica; `npm run test:evaluation` é offline, enquanto `npm run evaluate -- --help` descreve a execução explícita. O [pacote atualizado para a Ana](docs/pacote-ana/README.md) reúne matriz de atendimento, pitch, roteiro e insumos da candidatura.
+
+## Fechamento local do Product Vision
+
+A [supervisão](docs/product-vision-closure.md) amplia o recorte das decisões sem alterar indicadores globais. [Consumo da IA](docs/consumo-ia.md) registra tokens informados pelo provedor nas respostas persistidas e oferece relatório de estimativa com tarifas explícitas. O [instrumento de benefício](docs/benefit-measurement.md) prepara a comparação de tarefas com e sem Elo, sem inventar resultados de participantes. Aceites e limites desta rodada ficam no registro de fechamento.

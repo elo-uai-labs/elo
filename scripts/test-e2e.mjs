@@ -54,6 +54,15 @@ try {
   execFileSync(env.PYTHON || (existsSync(path.join(root, '.venv/bin/python3')) ? path.join(root, '.venv/bin/python3') : 'python3'),
     ['backend/audit_export.py', auditPath], {cwd: root, env, stdio: 'inherit'});
   const before = await (await fetch(`${url}/api/state`)).json();
+  if (before.case.dossier.usage?.provider === 'openai') {
+    const usageReport = JSON.parse(execFileSync(env.PYTHON || (existsSync(path.join(root, '.venv/bin/python3')) ? path.join(root, '.venv/bin/python3') : 'python3'),
+      ['backend/ai_usage.py', auditPath], {cwd: root, env, encoding: 'utf8'}));
+    assert.ok(usageReport.totals.total_tokens.measured_records > 0, 'Rodada OpenAI real deve informar tokens');
+    assert.ok(usageReport.records.some(row => row.kind === 'assistant' && row.usage?.total_tokens != null), 'Consumo do assistente preservado');
+    await mkdir(path.join(root, 'output/validation'), { recursive: true });
+    await writeFile(path.join(root, 'output/validation/usage-report-real.json'), JSON.stringify(usageReport, null, 2));
+  }
+
   await stop();
   await start();
   const after = await (await fetch(`${url}/api/state`)).json();

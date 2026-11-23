@@ -16,12 +16,13 @@
     "setup:ai": "node scripts/setup-ai.mjs",
     "test:backend": "node scripts/test-backend.mjs",
     "test:e2e": "node scripts/test-e2e.mjs",
-    "test": "npm run test:backend && npm run test:evaluation && npm run test:e2e && npm run test:auth && npm run test:operations",
+    "test": "npm run test:backend && npm run test:evaluation && npm run test:e2e && npm run test:auth && npm run test:operations && npm run test:supervision",
     "lab": "python3 backend/laboratory.py",
     "test:auth": "node scripts/test-auth.mjs",
     "test:evaluation": "node scripts/test-evaluation.mjs",
     "test:operations": "node tests/operations.cjs",
-    "evaluate": "node scripts/evaluation.mjs"
+    "evaluate": "node scripts/evaluation.mjs",
+    "test:supervision": "node tests/supervision.cjs"
   },
   "dependencies": {
     "@porsche-design-system/components-js": "4.10.1"
