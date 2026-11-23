@@ -24,6 +24,8 @@ function port(name, fallback) {
 export async function launch({ production = false } = {}) {
   process.chdir(root);
   if (existsSync('.env')) process.loadEnvFile('.env');
+  const provider = (process.env.ELO_AI_PROVIDER ?? 'auto').trim().toLowerCase();
+  if (!['auto', 'apple', 'openai'].includes(provider)) throw new Error('ELO_AI_PROVIDER deve ser auto, apple ou openai.');
   const apiPort = port('ELO_API_PORT', 8001);
   const webPort = port('ELO_WEB_PORT', 5173);
   if (!production && apiPort === webPort) throw new Error('Use portas diferentes para frontend e API.');
@@ -32,7 +34,7 @@ export async function launch({ production = false } = {}) {
   if (production && !existsSync(path.join(root, 'dist/index.html'))) throw new Error('Execute npm run build antes de npm start.');
   await mkdir(path.join(root, 'data'), { recursive: true });
   const env = { ...process.env, ELO_API_PORT: String(apiPort), ELO_WEB_PORT: String(webPort) };
-  if (!env.ELO_ON_DEVICE_BIN) {
+  if (provider !== 'openai' && !env.ELO_ON_DEVICE_BIN) {
     const binary = path.join(root, '.local/elo-on-device');
     try { await access(binary, constants.X_OK); env.ELO_ON_DEVICE_BIN = binary; } catch { /* Optional on-device provider. */ }
   }
@@ -72,8 +74,11 @@ export async function launch({ production = false } = {}) {
   }
   if (!production) child(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(webPort), '--strictPort']);
   console.log(`Elo: http://127.0.0.1:${production ? apiPort : webPort}/`);
-  if (!env.ELO_ON_DEVICE_BIN && !(env.OPENAI_API_KEY && env.ELO_MODEL)) {
-    console.log('IA real não configurada. A síntese local continua disponível. Veja npm run setup:ai.');
+  const selected = provider === 'auto' ? (env.ELO_ON_DEVICE_BIN?.trim() ? 'apple' : 'openai') : provider;
+  const ready = selected === 'apple' ? Boolean(env.ELO_ON_DEVICE_BIN?.trim()) : Boolean(env.OPENAI_API_KEY?.trim() && env.ELO_MODEL?.trim());
+  console.log(`Provedor de IA: ${selected}. ${ready ? 'Configuração presente; conexão ainda não verificada.' : 'Configuração pendente. A síntese local continua disponível.'}`);
+  if (!ready && selected === 'openai') {
+    console.log('Preencha OPENAI_API_KEY e ELO_MODEL no .env e reinicie o Elo.');
   }
 }
 

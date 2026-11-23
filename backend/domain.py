@@ -67,7 +67,11 @@ SUPPLIER_RULE = {"id": "supplier-shared-contact", "name": "Cadastro compartilhad
     "description": "O fornecedor do contrato compartilha código cadastral não vazio com outro fornecedor distinto. São possíveis cadastros administrativos comuns ou outras explicações legítimas; o sinal não comprova irregularidade.",
     "risk_rationale": "O código cadastral compartilhado por fornecedores exige revisão contextual da diligência cadastral e dos controles do risco associado. O sinal admite explicações legítimas e não comprova irregularidade.",
     "maturity_rationale": "Avalie se a diligência de terceiros da dimensão associada documenta e revisa códigos cadastrais compartilhados entre fornecedores. A metodologia permanece ilustrativa."}
-RULES = {RULE["id"]: RULE, SUPPLIER_RULE["id"]: SUPPLIER_RULE}
+REPEATED_RULE = {"id": "repeated-contract-profile", "name": "Contratos com perfil cadastral repetido", "version": "1", "experimental": True,
+    "description": "Contratos distintos com mesmo fornecedor, aprovador e título após normalizar caixa e espaços. Não compara valor, data ou pagamento; recorrências legítimas são possíveis. Tipologia sintética experimental.",
+    "risk_rationale": "Confira se contratos com perfil cadastral repetido correspondem a serviços recorrentes ou registros que precisam de revisão. Não há prova de duplicidade financeira ou irregularidade.",
+    "maturity_rationale": "Revise a documentação da comparação de cadastros contratuais. A tipologia e a metodologia são ilustrativas."}
+RULES = {RULE["id"]: RULE, SUPPLIER_RULE["id"]: SUPPLIER_RULE, REPEATED_RULE["id"]: REPEATED_RULE}
 
 
 def validate_dataset(value):
@@ -198,6 +202,36 @@ def match_supplier_cases(dataset):
     return matches
 
 
+def match_repeated_cases(dataset):
+    """Exact identifiers and normalized title; never infer financial duplication."""
+    suppliers = {row['id']: row for row in dataset['suppliers']}
+    employees = {row['id']: row for row in dataset['employees']}
+    groups = {}
+    for row in dataset['contracts']:
+        key = (row['supplier_id'], row['approver_id'], ' '.join(row['title'].split()).casefold())
+        groups.setdefault(key, []).append(row)
+    matches = []
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        ordered = sorted(group, key=lambda row: row['id'])
+        for row in ordered:
+            other = next(peer for peer in ordered if peer['id'] != row['id'])
+            evidence = [{'id': item['id'], 'source': 'Contratos sintéticos',
+                         'detail': f"{item['title']}: fornecedor {item['supplier_id']} e aprovação por {item['approver_id']}."}
+                        for item in (row, other)]
+            evidence.extend([
+                {'id': row['supplier_id'], 'source': 'Fornecedores sintéticos', 'detail': suppliers[row['supplier_id']]['name']},
+                {'id': row['approver_id'], 'source': 'Empregados sintéticos', 'detail': employees[row['approver_id']]['name']},
+            ])
+            matches.append({'id': 'SIG-REP-' + row['id'], 'title': REPEATED_RULE['name'], 'status': 'pending',
+                            'evidence': evidence, 'dossier': None, 'decision': None, 'impacts': [],
+                            'rule': deepcopy(REPEATED_RULE),
+                            'records': {'contract': deepcopy(row), 'supplier': deepcopy(suppliers[row['supplier_id']]),
+                                        'related_contract': deepcopy(other), 'employee': deepcopy(employees[row['approver_id']])}})
+    return matches
+
+
 def match_case(dataset):
     cases = match_cases(dataset)
     return cases[0] if cases else None
@@ -260,6 +294,8 @@ def transition(state, command, data):
             processed_by_rule = state["detection"].get("processed_by_rule", {})
             if SUPPLIER_RULE["id"] in processed_by_rule:
                 processed_by_rule[SUPPLIER_RULE["id"]] = []
+        if incoming["contracts"] and state["detection"] is not None:
+            state["detection"].get("processed_by_rule", {}).pop(REPEATED_RULE["id"], None)
         return "Base sintética importada", actor, {"synthetic": True, "counts": {key: len(rows) for key, rows in incoming.items()},
             "record_ids": {key: [row["id"] for row in rows] for key, rows in incoming.items()}}
     if command == "detect":

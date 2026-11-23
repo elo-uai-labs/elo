@@ -1,0 +1,18 @@
+id,cenario,fase,categoria,perfil_ou_recurso,unidade,quantidade,preco_unitario,moeda,cambio_brl,fonte_cotacao,data_cotacao,validade,responsavel_validacao,premissa,estado
+C01,base,,Desenvolvimento,,hora,,,,,,,,,,pendente
+C02,base,,Integração e metodologia,,hora,,,,,,,,,,pendente
+C03,base,,Implantação,,hora,,,,,,,,,,pendente
+C04,base,,Infraestrutura,,mês,,,,,,,,,,pendente
+C05,base,,Armazenamento e backup,,GiB-mês,,,,,,,,,,pendente
+C06,base,,IA entrada,,milhão de tokens,,,,,,,,,,pendente
+C07,base,,IA saída e raciocínio,,milhão de tokens,,,,,,,,,,pendente
+C08,base,,Hardware e OCR local,,mês,,,,,,,,,,pendente
+C09,base,,Identidade e segredos,,mês,,,,,,,,,,pendente
+C10,base,,Logs e monitoramento,,mês,,,,,,,,,,pendente
+C11,base,,Suporte,,hora,,,,,,,,,,pendente
+C12,base,,Capacitação,,hora,,,,,,,,,,pendente
+C13,base,,Teste independente,,serviço,,,,,,,,,,pendente
+C14,base,,Licenças,,mês,,,,,,,,,,pendente
+C15,base,,Migração e saída,,hora,,,,,,,,,,pendente
+C16,base,,Tributos e indiretos,,base percentual,,,,,,,,,,pendente
+C17,base,,Contingência,,base percentual,,,,,,,,,,pendente

@@ -1,3 +1,27 @@
+# Jornada completa OpenAI · 23/11/2026
+
+`ELO_AI_PROVIDER=openai ELO_MODEL=gpt-6.2-sol ELO_TEST_DOSSIER=real npm run test:e2e` aprovado com chamadas reais e banco temporário. Dossiês com afirmações/fontes visíveis, recuperação de falha simulada, revisão humana, consultas reais ao risco (`RSK-001`) e ao documento revisado (`EVD-0001`) passaram. Ambas as consultas reais retornaram `gpt-6.2-sol`, sem abstenção, e não alteraram os registros de negócio. Navegação desktop/celular, PDS 4.10.1 e glifos Porsche Next, exportação íntegra e estado idêntico após reinício foram verificados.
+
+Resultado: 119 eventos de auditoria, 10 casos sintéticos. Evidências em `output/validation/result-real.json`, `openai-assistant-real.json` e `openai-real-e2e.log`. As consultas reais foram submetidas no desktop; a cobertura móvel inclui navegação, dossiê e apresentação do histórico do assistente. Teste funcional com amostra sintética, sem alegação de precisão geral/homologação corporativa. Banco manual preservado.
+
+---
+
+# Ativação OpenAI · 23/11/2026
+
+Com autorização do usuário, chave `elo-local` criada no Default project, restrita a Responses, validade até 23/12/2026. Segredo salvo somente no `.env` ignorado pelo Git, permissão 0600. Modelo alterado para `gpt-6.2-sol`, conforme pedido de modelo mais novo. Uma chamada real curta com contrato fictício foi aprovada pelo validador de dossiê, retornando modelo `gpt-6.2-sol` e fonte `CTR-001`. Nenhum banco usado nessa sonda. Isso valida chave, acesso e contrato básico; não substitui homologação de qualidade nem jornada completa com esse modelo. Servidor reiniciado para carregar a configuração.
+
+---
+
+# Preparação OpenAI · 23/11/2026
+
+Seleção explícita por `ELO_AI_PROVIDER=openai|apple|auto`, compartilhada por dossiês e assistente. OpenAI não troca para Apple ou síntese local quando falta chave ou há erro. Inicialização informa configuração pendente sem testar a API. `.env.example` preparado com `gpt-6.1-terra`; arquivo `.env` local criado com chave vazia, ignorado pelo Git e permissão 0600. Respostas incompletas e citações inválidas são recusadas; limite de saída de 8.192 tokens inclui raciocínio. OCR permanece local, decisões permanecem humanas.
+
+Validação: **204 testes backend**, `npm run build` e `npm test` aprovados. Sete testes novos usam transporte simulado, sem chave real ou chamadas pagas, cobrindo precedência, falta de configuração, isolamento dos provedores, contrato HTTP, respostas incompletas, fontes inválidas e falha de rede. Jornadas desktop/celular, Porsche Next/PDS 4.10.1, persistência e autenticação passaram. Banco manual não usado nos testes; servidor local reiniciado e confirmou IA não configurada enquanto a chave está vazia. Log local: `/tmp/elo-openai-test.log`.
+
+**Pendente:** inserir a chave do Elo e validar acesso ao modelo e qualidade real com dados sintéticos. Esta entrega não afirma homologação OpenAI nem implementa contabilização de custos. Configuração e comando de teste real estão no README.
+
+---
+
 # OCR local · 23/11/2026
 
 OCR experimental implementado para PNG, JPEG e PDF digitalizado, usando Tesseract 5.5.4 e rasterização PDFKit/ImageIO local. Modelos oficiais português/inglês fixados por commit e SHA-256. Página, região, escores internos, versão e original preservados; texto sem revisão não entra no assistente. Baixa confiança/ausência de texto bloqueiam aceitação. Uma leitura literal inconclusiva pode ser seguida de OCR sem apagar o histórico, com uma única fonte aceita por arquivo.

@@ -1,0 +1,9 @@
+id,decisao,funcao_responsavel_proposta,insumo,criterio_aceite,responsavel_designado,data_prevista,evidencia_aprovacao,estado
+D01,Fonte autorizada,Dono da fonte e governança de dados,Contrato de dados e autorização,Lotes reconciliados e negativas ensaiadas,,,,pendente
+D02,Identidade e papéis,Gestão de acessos,IdP/MFA e matriz de autorização,Revogação e segregação verificadas,,,,pendente
+D03,Metodologia,Área responsável pelo risco e maturidade,Instrumento versionado e exemplos,Cálculos reproduzidos e aprovados,,,,pendente
+D04,Hospedagem,Arquitetura e segurança,Ambiente região capacidade RPO RTO,Restauração carga e segurança aprovadas,,,,pendente
+D05,IA e dados,Governança de IA e dados,Provedor modelo política e amostra,Qualidade e tratamento de dados aceitos,,,,pendente
+D06,Auditoria externa,Auditoria e segurança operacional,Destino independente retenção e assinatura,Adulteração local detectada externamente,,,,pendente
+D07,Ativos PDS,Responsável institucional e licenças,Direitos e origens autorizadas,Circulação e distribuição aprovadas,,,,pendente
+D08,Orçamento e anexos,Responsável comercial,Valores horas cronograma modelos oficiais,Totais reconciliados e proposta aprovada,,,,pendente

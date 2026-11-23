@@ -20,8 +20,17 @@ INSTRUCTIONS = (
 )
 
 
+def provider():
+    selected = os.getenv("ELO_AI_PROVIDER", "auto").strip().lower()
+    if selected == "auto":
+        return "apple" if os.getenv("ELO_ON_DEVICE_BIN", "").strip() else "openai"
+    return selected
+
+
 def configured():
-    return bool(os.getenv("ELO_ON_DEVICE_BIN") or (os.getenv("OPENAI_API_KEY") and os.getenv("ELO_MODEL")))
+    if provider() == "apple":
+        return bool(os.getenv("ELO_ON_DEVICE_BIN", "").strip())
+    return provider() == "openai" and all(os.getenv(name, "").strip() for name in ("OPENAI_API_KEY", "ELO_MODEL"))
 
 
 ENTITY_PATTERN = r"\b(?:CTR|FOR|EMP|RSK|CTL|DIM|REC|EVD|AVA|RPT|SIM|ELO|SIG-SUP|DEC-ELO|WRK|DOC|ASK|BAT)-[A-Za-z0-9_-]+"
@@ -106,6 +115,14 @@ def generate_on_device(binary, evidence, ids, instructions=INSTRUCTIONS, allow_e
 
 def generate(evidence, mode, rule_id="contact-code-match"):
     ids = [item["id"] for item in evidence]
+    if mode == "local" and rule_id == "repeated-contract-profile":
+        # Each contract mentions its supplier/approver; both records form the evidence set.
+        output = {
+            "claims": [{"text": f"Os contratos {ids[0]} e {ids[1]} têm o mesmo fornecedor, aprovador e título normalizado.", "source_ids": ids}],
+            "limitations": "O perfil cadastral repetido pode decorrer de recorrência legítima. Valores, datas e pagamentos não foram comparados; não se conclui duplicidade financeira.",
+            "suggestion": "Confira os documentos originais e a finalidade de cada contratação antes de decidir.",
+        }
+        return {**verified_dossier(output, "regra-local", ids), "mode": "local"}
     if mode == "local" and rule_id == "supplier-shared-contact":
         output = {
             "claims": [{"text": item["detail"], "source_ids": [item["id"]]} for item in evidence],
@@ -134,11 +151,15 @@ def generate_grounded(evidence, instructions, question):
 
 
 def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, question=None):
-    if binary := os.getenv("ELO_ON_DEVICE_BIN"):
-        return generate_on_device(binary, evidence, ids, instructions=instructions,
-                                  allow_empty=allow_empty, question=question)
+    if provider() not in ("apple", "openai"):
+        raise WorkflowError("ELO_AI_PROVIDER deve ser auto, apple ou openai.", 503)
     if not configured():
-        raise WorkflowError("Configure o modelo local ou OPENAI_API_KEY e ELO_MODEL para usar IA real.", 503)
+        message = ("Configure OPENAI_API_KEY e ELO_MODEL no .env e reinicie o Elo."
+                   if provider() == "openai" else "Prepare o modelo Apple com npm run setup:ai.")
+        raise WorkflowError(message, 503)
+    if provider() == "apple":
+        return generate_on_device(os.environ["ELO_ON_DEVICE_BIN"], evidence, ids, instructions=instructions,
+                                  allow_empty=allow_empty, question=question)
     schema = {
         "type": "object", "additionalProperties": False, "required": ["claims", "limitations", "suggestion"],
         "properties": {
@@ -153,7 +174,7 @@ def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, q
         "https://api.openai.com/v1/responses",
         data=json.dumps({
             "model": os.environ["ELO_MODEL"], "store": False, "instructions": instructions,
-            "input": json.dumps({"question": question, "sources": evidence} if question is not None else evidence, ensure_ascii=False), "max_output_tokens": 1800,
+            "input": json.dumps({"question": question, "sources": evidence} if question is not None else evidence, ensure_ascii=False), "max_output_tokens": 8192,
             "text": {"format": {"type": "json_schema", "name": "dossier", "strict": True, "schema": schema}},
         }).encode(),
         headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"]},
@@ -161,6 +182,8 @@ def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, q
     try:
         with urlopen(request, timeout=30) as response:
             result = json.load(response)
+        if result.get("status") != "completed":
+            raise ValueError("Incomplete model response")
         output = next(part["text"] for item in result["output"] if item["type"] == "message"
                       for part in item["content"] if part["type"] == "output_text")
         return verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None)

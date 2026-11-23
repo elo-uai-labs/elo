@@ -6,6 +6,7 @@ from statistics import median
 from zoneinfo import ZoneInfo
 
 from domain import WorkflowError, choice, require, required, serialize
+from operations import overview
 
 COMMANDS = {'work/create', 'work/update', 'work/status'}
 PRIORITIES = ('low', 'normal', 'high', 'urgent')
@@ -126,7 +127,7 @@ def summary(state, now=None):
             'overdue': sum(item['due'] < today for item in pending),
             'completed': sum(item['status'] == 'completed' for item in selected),
             'cancelled': sum(item['status'] == 'cancelled' for item in selected)})
-    return {'as_of': now.isoformat(timespec='milliseconds'), 'today': today, 'timezone': 'America/Sao_Paulo',
+    return {'operations': overview(state, now), 'as_of': now.isoformat(timespec='milliseconds'), 'today': today, 'timezone': 'America/Sao_Paulo',
             'total': len(items), 'status_counts': {status: sum(item['status'] == status for item in items) for status in STATUSES},
             'pending': len(active), 'overdue': sum(item['due'] < today for item in active), 'by_priority': by_priority,
             'completion_rate': {'numerator': len(completed), 'denominator': denominator,

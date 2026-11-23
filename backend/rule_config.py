@@ -1,4 +1,4 @@
-"""Versioned, bounded parameters for the two deterministic synthetic rules."""
+"""Versioned, bounded parameters for the bounded deterministic synthetic rules."""
 from copy import deepcopy
 import hashlib
 from domain import RULES, WorkflowError, required, require, serialize
@@ -51,17 +51,18 @@ def snapshot(state, rule_id):
 
 
 def match(dataset, rule_id, config):
-    from domain import match_cases, match_supplier_cases
+    from domain import match_cases, match_supplier_cases, match_repeated_cases
     require(config['rule_id'] == rule_id and rule_id in RULES, 'Configuração incompatível com a regra.')
     if not config['enabled']:
         return []
-    matcher = match_cases if rule_id == 'contact-code-match' else match_supplier_cases
+    matcher = {'contact-code-match': match_cases, 'supplier-shared-contact': match_supplier_cases,
+               'repeated-contract-profile': match_repeated_cases}[rule_id]
     title = config['contract_title_contains'].casefold()
     candidates = {**dataset, 'contracts': [row for row in dataset['contracts'] if title in row['title'].casefold()]}
     output = []
     for case in matcher(candidates):
         code = case['records']['supplier']['contact_code']
-        if len(code) < config['min_code_length'] or code in config['excluded_contact_codes']:
+        if rule_id != 'repeated-contract-profile' and (len(code) < config['min_code_length'] or code in config['excluded_contact_codes']):
             continue
         case['rule']['configuration'] = deepcopy(config)
         output.append(case)

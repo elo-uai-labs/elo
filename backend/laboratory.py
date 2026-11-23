@@ -14,7 +14,8 @@ FIXTURE_PATH = Path(__file__).with_name("lab_fixture.json")
 def load_fixture(rule_id="contact-code-match"):
     if rule_id not in RULES:
         raise ValueError("Regra desconhecida.")
-    path = FIXTURE_PATH if rule_id == RULE["id"] else FIXTURE_PATH.with_name("lab_supplier_fixture.json")
+    path = {RULE["id"]: FIXTURE_PATH, "supplier-shared-contact": FIXTURE_PATH.with_name("lab_supplier_fixture.json"),
+            "repeated-contract-profile": FIXTURE_PATH.with_name("lab_repeated_fixture.json")}[rule_id]
     return json.loads(path.read_text(encoding="utf-8"))
 
 

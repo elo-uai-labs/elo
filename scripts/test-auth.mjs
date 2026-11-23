@@ -17,7 +17,7 @@ const port = probe.address().port;
 await new Promise((resolve) => probe.close(resolve));
 const credentials = Object.fromEntries(['analyst', 'reviewer', 'operator', 'auditor', 'admin'].map((role) => [role, randomBytes(24).toString('base64url')]));
 const url = `http://127.0.0.1:${port}`;
-const env = { ...process.env, ELO_API_PORT: String(port), ELO_DB: path.join(temporary, 'auth.sqlite3'), ELO_URL: url,
+const env = { ...process.env, ELO_ENV: 'test', ELO_REQUIRE_AUTH: '0', ELO_API_PORT: String(port), ELO_DB: path.join(temporary, 'auth.sqlite3'), ELO_URL: url,
   ELO_AUTH_USERS_FILE: path.join(temporary, 'users.json'), ELO_TEST_AUTH_PASSWORDS: JSON.stringify(credentials),
   PYTHONPATH: path.join(root, 'backend'),
 };

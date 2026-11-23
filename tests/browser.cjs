@@ -969,6 +969,7 @@ async function main() {
     await require('./browser-diagnostic.cjs').runDiagnostic(browser, pageErrors, baseUrl);
     await require('./browser-document-formats.cjs').runDocumentFormats(browser, pageErrors, baseUrl);
     await require('./browser-ocr.cjs').runOCR(browser, pageErrors, baseUrl);
+    await require('./browser-repeated.cjs').runRepeated(browser, pageErrors, baseUrl);
     assert.deepEqual(pageErrors, []);
     console.log('Elo: jornada executável e navegação móvel verificadas com Playwright.');
   } finally {

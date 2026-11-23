@@ -1,0 +1,112 @@
+{
+  "id": "elo-repeated-contract-lab",
+  "version": "1.0.0",
+  "synthetic": true,
+  "description": "Gabarito manual: igualdade de fornecedor/aprovador/título normalizado, sem inferência financeira.",
+  "expected_rule": {
+    "id": "repeated-contract-profile",
+    "version": "1"
+  },
+  "dataset": {
+    "employees": [
+      {
+        "id": "EMP-R1",
+        "name": "Pessoa um fictícia",
+        "role": "Aprovador",
+        "contact_code": ""
+      },
+      {
+        "id": "EMP-R2",
+        "name": "Pessoa dois fictícia",
+        "role": "Aprovador",
+        "contact_code": ""
+      }
+    ],
+    "suppliers": [
+      {
+        "id": "FOR-R1",
+        "name": "Fornecedor um fictício",
+        "contact_code": ""
+      },
+      {
+        "id": "FOR-R2",
+        "name": "Fornecedor dois fictício",
+        "contact_code": ""
+      }
+    ],
+    "contracts": [
+      {
+        "id": "CTR-R1",
+        "supplier_id": "FOR-R1",
+        "approver_id": "EMP-R1",
+        "title": "Manutenção anual"
+      },
+      {
+        "id": "CTR-R2",
+        "supplier_id": "FOR-R1",
+        "approver_id": "EMP-R1",
+        "title": "  MANUTENÇÃO   anual "
+      },
+      {
+        "id": "CTR-R3",
+        "supplier_id": "FOR-R2",
+        "approver_id": "EMP-R1",
+        "title": "Manutenção anual"
+      },
+      {
+        "id": "CTR-R4",
+        "supplier_id": "FOR-R1",
+        "approver_id": "EMP-R2",
+        "title": "Manutenção anual"
+      },
+      {
+        "id": "CTR-R5",
+        "supplier_id": "FOR-R1",
+        "approver_id": "EMP-R1",
+        "title": "Manutenção mensal"
+      },
+      {
+        "id": "CTR-R6",
+        "supplier_id": "FOR-R1",
+        "approver_id": "EMP-R1",
+        "title": "Manutencao anual"
+      }
+    ]
+  },
+  "expected_contract_ids": [
+    "CTR-R1",
+    "CTR-R2"
+  ],
+  "scenarios": [
+    {
+      "contract_id": "CTR-R1",
+      "scenario": "Perfil repetido",
+      "reason": "Sinal sintético esperado, não fraude."
+    },
+    {
+      "contract_id": "CTR-R2",
+      "scenario": "Caixa e espaços",
+      "reason": "Normalização declarada preserva equivalência."
+    },
+    {
+      "contract_id": "CTR-R3",
+      "scenario": "Fornecedor distinto",
+      "reason": "Mesmo título não basta."
+    },
+    {
+      "contract_id": "CTR-R4",
+      "scenario": "Aprovador distinto",
+      "reason": "Mesmo fornecedor não basta."
+    },
+    {
+      "contract_id": "CTR-R5",
+      "scenario": "Título distinto",
+      "reason": "Recorrência textual distinta não é agrupada."
+    },
+    {
+      "contract_id": "CTR-R6",
+      "scenario": "Acentuação distinta",
+      "reason": "Acentos não são removidos."
+    }
+  ]
+}

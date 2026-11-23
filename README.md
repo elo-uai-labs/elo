@@ -34,7 +34,21 @@ npm run dev
 
 O executável é compilado do código versionável `backend/on_device.swift` para `.local/elo-on-device`, detectado automaticamente ao iniciar. Ao atualizar uma instalação anterior, execute novamente `npm run setup:ai`: o contrato `elo-dossier-v4` usa afirmações com fontes individuais, limitações e sugestão separadas. No dossiê, selecione **IA real**. A disponibilidade do modelo é verificada na geração; falhas aparecem na interface e não são substituídas silenciosamente pela síntese local.
 
-Alternativamente, configure `OPENAI_API_KEY` e `ELO_MODEL` no ambiente ou em `.env` (ignorado pelo Git). Somente o backend usa as credenciais. A integração Apple tem preferência quando o executável local existe; para selecionar explicitamente OpenAI, execute sem esse binário. A opção **Síntese local** é determinística e identificada como tal, sem chamada a um modelo.
+Para OpenAI, use no `.env` local (ignorado pelo Git):
+
+```dotenv
+ELO_AI_PROVIDER=openai
+OPENAI_API_KEY=
+ELO_MODEL=gpt-6.2-sol
+```
+
+Preencha a chave do projeto Elo e reinicie `npm run dev` (ou `npm start`). Somente o backend usa a chave; não a coloque no frontend nem em mensagens. Variáveis já definidas no ambiente têm precedência sobre `.env`. O modelo inicial é configurável e oferece Responses API e respostas estruturadas conforme a [OpenAI Docs](https://developers.openai.com/api/docs/models/gpt-6.2-sol); acesso e qualidade serão validados após inserir a chave.
+
+`ELO_AI_PROVIDER=openai` seleciona OpenAI mesmo com o binário Apple instalado. `apple` seleciona exclusivamente Apple; `auto` (padrão quando omitido) preserva a detecção antiga, com prioridade Apple. Configuração ausente ou falha não troca de provedor nem gera síntese local silenciosamente. A opção **Síntese local** continua determinística e disponível sem chave. A indicação de configuração não comprova conexão ou saldo na API.
+
+As chamadas enviam as fontes textuais do caso selecionado e, no assistente, a pergunta e trechos revisados. OCR permanece local. A API recebe `store: false`, JSON estruturado e limite de 8.192 tokens de saída (incluindo raciocínio); respostas incompletas ou referências inválidas são recusadas. Esse parâmetro não equivale a uma garantia de retenção zero. O escopo permanece sintético, com decisões humanas. Não há chamada paga na inicialização.
+
+Depois de configurar a chave, a validação real pode ser executada explicitamente com `ELO_TEST_DOSSIER=real npm run test:e2e`; essa rodada faz chamadas à API.
 
 ## Jornada disponível
 
@@ -132,3 +146,7 @@ A inicialização e os testes backend preferem esse Python quando presente; `PYT
 ## OCR local opcional
 
 No macOS com Swift/SDK, execute `npm run setup:ocr`. Em Plano e auditoria, anexe PNG, JPEG ou PDF sintético e escolha **Reconhecer texto**. A execução é local, separada da extração literal. Página, região, escores internos e versão ficam preservados; baixa confiança ou ausência de texto bloqueia aceitação. O revisor precisa conferir cada trecho no original. Consulte [preparação, limites e avaliação do OCR](docs/ocr.md).
+
+## Ampliação local após o diagnóstico
+
+A terceira [tipologia experimental de perfil contratual repetido](docs/tipologia-perfil-repetido.md) compara contratos distintos por fornecedor, aprovador e título normalizado, sem inferir duplicidade financeira. Os sinais e decisões permanecem separados. O [bloqueio explícito de ambientes não suportados e exigência opcional de login](docs/runtime-local.md) evita inicialização em produção declarada ou em demo quando autenticação foi exigida; não representa prontidão corporativa.

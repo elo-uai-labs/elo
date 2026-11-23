@@ -19,6 +19,7 @@ import governance
 import reporting
 import work
 from access import AccessService
+from runtime_policy import validate_runtime
 from access_audit import AccessAudit
 from audit_export import build_export
 from domain import Store, WorkflowError, choice, require, required
@@ -34,6 +35,7 @@ class EloServer(ThreadingHTTPServer):
 
     def __init__(self, address, store, static_dir=None, frontend_port=None, access_service=...):
         self.access = AccessService.from_environment() if access_service is ... else access_service
+        validate_runtime(self.access)
         self.store = store
         self.access_audit = AccessAudit(store.path)
         self.static_dir = Path(static_dir).resolve() if static_dir else None
@@ -406,8 +408,13 @@ def serve():
     args = parser.parse_args()
     if args.frontend_port is not None and not 1 <= args.frontend_port <= 65535:
         parser.error("--frontend-port must be a valid TCP port")
+    access_service = AccessService.from_environment()
+    try:
+        validate_runtime(access_service)
+    except ValueError as error:
+        parser.error(str(error))
     args.db.parent.mkdir(parents=True, exist_ok=True)
-    with EloServer(("127.0.0.1", args.port), Store(args.db), args.dist, args.frontend_port) as server:
+    with EloServer(("127.0.0.1", args.port), Store(args.db), args.dist, args.frontend_port, access_service=access_service) as server:
         print(f"Elo API: http://127.0.0.1:{server.server_port}", flush=True)
         server.serve_forever()
 

@@ -33,6 +33,7 @@ let insights;
 let insightsError = '';
 let workSummary;
 let workSummaryError = '';
+let workFilters = { status: 'all', priority: 'all', owner: 'all', deadline: 'all', query: '' };
 let selectedCaseId = new URL(location.href).searchParams.get('case_id');
 
 function cases() {
@@ -70,7 +71,7 @@ function loginScreen() {
 }
 
 function permissionReason(endpoint, form) {
-  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'work/summary', 'logout'].includes(endpoint)) return '';
+  if (!session?.auth_required || ['select-case', 'laboratory/run', 'supervision/read', 'insights/read', 'assistant/query', 'work/summary', 'work-filter', 'logout'].includes(endpoint)) return '';
   const user = session.user;
   if (!user) return 'Entre para continuar.';
   const roles = user.roles;
@@ -221,7 +222,7 @@ function tabularImportPanel() {
 function capabilitiesPanel() {
   return `<p-accordion data-testid="capabilities"><p-heading slot="summary" tag="h2" size="sm">Capacidades e limites desta versão</p-heading>
     <p-text-list>
-      <p-text-list-item><p-tag variant="success">Funcional local</p-tag><p-text size="sm">Bases sintéticas JSON/CSV/XLSX, duas regras, correlação por contrato, revisão humana, planos, contas locais e exportação verificável de auditoria.</p-text></p-text-list-item>
+      <p-text-list-item><p-tag variant="success">Funcional local</p-tag><p-text size="sm">Bases sintéticas JSON/CSV/XLSX, regras determinísticas, correlação por contrato, revisão humana, planos, contas locais e exportação verificável de auditoria.</p-text></p-text-list-item>
       <p-text-list-item><p-tag variant="warning">Experimental</p-tag><p-text size="sm">IA real quando configurada; extração literal de PDF digital e planilhas com revisão e localização. A precisão depende do documento. PDF requer dependência local instalada. OCR local opcional para PNG/JPEG e PDF digitalizado requer macOS e preparação do leitor. Confiança não equivale a precisão; confira os trechos no original.</p-text></p-text-list-item>
       <p-text-list-item><p-tag variant="secondary">Planejado / depende da CAIXA</p-tag><p-text size="sm">SSO/MFA, fontes corporativas, infraestrutura autorizada, ancoragem externa de auditoria, homologação de OCR em documentos autorizados e metodologia oficial de maturidade. A metodologia atual é ilustrativa. Custos e proposta comercial ainda pendentes.</p-text></p-text-list-item>
     </p-text-list><p-text size="sm">Execução local e dados fictícios. IA não decide impactos. Esta demonstração não representa homologação corporativa.</p-text>
@@ -343,7 +344,7 @@ function overview() {
       </div>
     </section>
     <section class="metric-strip" aria-label="Indicadores de todos os casos">${indicators}</section>
-    <div class="grid">${panel(`Jornada do caso${current ? ` · ${escape(current.id)}` : ''}`, `<p-text-list class="record-list" type="numbered">${journey}</p-text-list>`)}${datasetPanel()}</div>${workSummaryPanel()}${trendsPanel()}${integrationPanel()}`;
+    <div class="grid">${panel(`Jornada do caso${current ? ` · ${escape(current.id)}` : ''}`, `<p-text-list class="record-list" type="numbered">${journey}</p-text-list>`)}${datasetPanel()}</div>${workSummaryPanel()}${operationsPanel()}${trendsPanel()}${integrationPanel()}`;
 }
 
 function evidenceList(current) {
@@ -438,7 +439,7 @@ function supervisionPanel() {
 function ruleConfiguration(rule) {
   const config = rule.configuration;
   if (!config) return '';
-  return `<p-text size="sm">Configuração v${config.version} · ${config.enabled ? 'Ativa' : 'Desativada'} · Comprimento mínimo: ${config.min_code_length}</p-text>
+  return `${rule.experimental ? '<p-tag variant="warning">Regra experimental sintética</p-tag><p-text size="sm">Filtros de código cadastral não se aplicam a esta regra; habilitação e filtro de título continuam aplicáveis.</p-text>' : ''}<p-text size="sm">Configuração v${config.version} · ${config.enabled ? 'Ativa' : 'Desativada'} · Comprimento mínimo: ${config.min_code_length}</p-text>
     <p-accordion><p-heading slot="summary" tag="h4" size="sm">Configurar regra · ${escape(rule.name)}</p-heading>
       <p-text size="sm">Os parâmetros são versionados. Ao salvar, a regra precisa ser executada novamente; casos e fontes anteriores permanecem preservados. Confira o efeito no laboratório antes de executar a análise.</p-text>
       <form class="form" data-endpoint="rule/config" data-testid="rule-config-${escape(rule.id)}">
@@ -459,7 +460,7 @@ function detectionPanel() {
   return panel('Detecção de indícios', `<p-text>${cases().length} indício(s) registrado(s). Cada regra requer análise e revisão humana independentes.</p-text>
     ${noNewMatches ? '<p-inline-notification state="success" heading="Análise concluída sem novos indícios" description="A última execução não encontrou novos vínculos pela regra selecionada. Esse resultado não comprova ausência de outros riscos." dismiss-button="false"></p-inline-notification>' : ''}
     ${rules.map((rule) => `<section class="stack"><p-heading tag="h3" size="md">${escape(rule.name)}</p-heading><p-text size="sm">${escape(rule.description)}</p-text><p-text size="sm">Versão ${escape(rule.version)} · ${rule.pending_count} contrato(s) pendente(s)</p-text>${ruleConfiguration(rule)}
-      <form class="form" data-endpoint="detect">${hidden('rule_id', rule.id)}<div class="actions"><p-button variant="${rule.id === 'contact-code-match' ? 'primary' : 'secondary'}" icon="none" data-testid="${rule.id === 'contact-code-match' ? 'detect' : 'detect-suppliers'}" type="submit"${!rule.pending_count || rule.configuration?.enabled === false ? ' disabled' : ''}>${rule.id === 'contact-code-match' ? 'Executar análise' : 'Analisar fornecedores relacionados'}</p-button></div></form></section>`).join('')}`);
+      <form class="form" data-endpoint="detect">${hidden('rule_id', rule.id)}<div class="actions"><p-button variant="${rule.id === 'contact-code-match' ? 'primary' : 'secondary'}" icon="none" data-testid="${rule.id === 'contact-code-match' ? 'detect' : rule.id === 'repeated-contract-profile' ? 'detect-repeated' : 'detect-suppliers'}" type="submit"${!rule.pending_count || rule.configuration?.enabled === false ? ' disabled' : ''}>${rule.id === 'contact-code-match' ? 'Executar análise' : rule.id === 'repeated-contract-profile' ? 'Comparar perfis contratuais' : 'Analisar fornecedores relacionados'}</p-button></div></form></section>`).join('')}`);
 }
 
 function assistantPanel(current) {
@@ -868,6 +869,24 @@ function workSummaryPanel() {
       <p-text size="xs" color="contrast-high">Referência de prazo: ${escape(summary.today)} · ${escape(summary.timezone)} · Atualizado em ${escape(summary.as_of)}</p-text></div>` : ''}`);
 }
 
+function operationsPanel() {
+  const ops = workSummary?.operations;
+  if (!ops) return '';
+  const names = { overdue: 'Prazo vencido', due_today: 'Prazo hoje', due_soon: 'Prazo nos próximos 7 dias', closure_review: 'Revisão de encerramento pendente' };
+  const alerts = ops.notifications.slice(0, 50);
+  return panel('Avisos e acompanhamento operacional', `<div class="stack" data-testid="operations-panel">
+    <p-text size="sm">${escape(ops.notice)}</p-text>
+    <form data-endpoint="work/summary"><p-button type="submit" variant="secondary" icon="none">Atualizar avisos e indicadores</p-button></form>
+    <p-text weight="semibold">${ops.notification_total} aviso(s) ativo(s) · exibindo ${alerts.length}</p-text>
+    ${alerts.length ? `<p-text-list>${alerts.map((item) => `<p-text-list-item data-testid="operation-${escape(item.id)}"><p-tag variant="${item.kind === 'overdue' ? 'warning' : 'secondary'}">${names[item.kind]}</p-tag><p-text>${escape(item.entity_id)} · ${escape(item.title)}</p-text><p-text size="sm">Responsável: ${escape(item.owner)} · Prazo: ${escape(item.due)}</p-text>${item.case_id ? `<p-link-pure href="?case_id=${encodeURIComponent(item.case_id)}#governanca">Abrir plano no caso ${escape(item.case_id)}</p-link-pure>` : '<p-text size="sm">Consulte o trabalho em Plano e auditoria pelo ID.</p-text>'}</p-text-list-item>`).join('')}</p-text-list>` : '<p-text>Nenhum aviso operacional ativo.</p-text>'}
+    <p-heading tag="h3" size="md">Cumprimento de prazo dos trabalhos</p-heading>
+    <p-text data-testid="operations-sla">${ops.sla.percent === null ? 'Sem amostra' : `${Number(ops.sla.percent).toLocaleString('pt-BR')}%`} · ${ops.sla.on_time}/${ops.sla.evaluated} concluídos no prazo · ${ops.sla.missing_timestamp} sem data avaliável</p-text>
+    <p-text size="sm">${escape(ops.sla.definition)}</p-text>
+    <p-heading tag="h3" size="md">Recorrência de sinais</p-heading><p-text size="sm">${escape(ops.recurrence.definition)}</p-text>
+    ${ops.recurrence.groups.length ? `<p-text-list>${ops.recurrence.groups.slice(0, 20).map((row) => `<p-text-list-item>${escape(row.rule_id)} · ${escape(row.supplier_id)} · ${row.distinct_contracts} contratos distintos: ${escape(row.contract_ids.join(', '))}</p-text-list-item>`).join('')}</p-text-list><p-text size="sm">Exibindo até 20 de ${ops.recurrence.groups.length} grupos.</p-text>` : '<p-text size="sm">Nenhum fornecedor com sinal da mesma regra em contratos distintos.</p-text>'}
+    <p-text size="xs">Referência ${escape(workSummary.today)} · ${escape(workSummary.timezone)} · ${escape(workSummary.as_of)}</p-text></div>`);
+}
+
 function workForm(item = {}) {
   const prefix = `work-${item.id || 'new'}`;
   return `<form class="form" data-endpoint="work/${item.id ? 'update' : 'create'}" data-testid="${prefix}">
@@ -892,9 +911,27 @@ function workStatusForm(item, status, label) {
 }
 
 function workPanel() {
-  const items = state.work_items || [];
+  const all = state.work_items || [];
+  const today = workSummary?.today;
+  const items = all.filter((item) => {
+    const active = ['planned', 'in_progress'].includes(item.status);
+    return (workFilters.status === 'all' || item.status === workFilters.status)
+      && (workFilters.priority === 'all' || item.priority === workFilters.priority)
+      && (workFilters.owner === 'all' || item.owner === workFilters.owner)
+      && (workFilters.deadline === 'all' || (today && active && (workFilters.deadline === 'overdue' ? item.due < today : item.due === today)))
+      && `${item.id} ${item.title} ${item.description}`.toLocaleLowerCase('pt-BR').includes(workFilters.query.toLocaleLowerCase('pt-BR'));
+  });
+  const owners = [...new Set(all.map((item) => item.owner))].sort();
+  const filters = `<form class="form" data-endpoint="work-filter" data-testid="work-filters">
+    <div class="form-grid">${selectField('work-filter-status', 'status', 'Filtrar situação', [['all', 'Todas as situações'], ...Object.entries(workStatuses)], workFilters.status)}
+    ${selectField('work-filter-priority', 'priority', 'Filtrar prioridade', [['all', 'Todas as prioridades'], ...Object.entries(workPriorities)], workFilters.priority)}
+    ${selectField('work-filter-owner', 'owner', 'Filtrar responsável', [['all', 'Todos os responsáveis'], ...owners.map((owner) => [owner, owner])], workFilters.owner)}
+    ${selectField('work-filter-deadline', 'deadline', 'Filtrar prazo', [['all', 'Todos os prazos'], ['overdue', 'Pendentes atrasados'], ['today', 'Pendentes com prazo hoje']], workFilters.deadline)}</div>
+    <p-input-text name="query" label="Buscar título, descrição ou ID (opcional)" value="${escape(workFilters.query)}" max-length="160"></p-input-text>
+    <p-button type="submit" variant="secondary" icon="none">Aplicar filtros dos trabalhos</p-button>
+    <p-text size="sm">${items.length} de ${all.length} trabalhos. Filtros afetam apenas esta lista; indicadores e avisos usam todos os registros. Para limpar, selecione todas as opções e esvazie a busca.</p-text></form>`;
   return panel('Trabalhos da 2ª Linha', `<p-text>Planeje e acompanhe trabalhos independentes, com responsável, prioridade justificada e resultado documentado. Os vínculos com casos não alteram suas decisões.</p-text>
-    <p-accordion><p-heading slot="summary" tag="h3" size="md">Planejar novo trabalho</p-heading>${workForm()}</p-accordion>
+    ${filters}<p-accordion><p-heading slot="summary" tag="h3" size="md">Planejar novo trabalho</p-heading>${workForm()}</p-accordion>
     ${items.length ? items.map((item) => `<section class="stack" data-testid="work-item-${escape(item.id)}">
       <div class="entry-header"><p-heading tag="h3" size="md">${escape(item.title)} · ${escape(item.id)}</p-heading><p-tag class="work-status" variant="${item.status === 'completed' ? 'success' : 'secondary'}">${escape(workStatuses[item.status])}</p-tag></div>
       <p-text>${escape(item.description)}</p-text><p-text size="sm">Responsável: ${escape(item.owner)} · Prazo: ${escape(item.due)} · Prioridade ${escape(workPriorities[item.priority])}</p-text>
@@ -905,7 +942,7 @@ function workPanel() {
       ${['planned', 'in_progress'].includes(item.status) ? `<p-accordion><p-heading slot="summary" tag="h4" size="sm">Editar planejamento · ${escape(item.id)}</p-heading>${workForm(item)}</p-accordion>
         <p-accordion><p-heading slot="summary" tag="h4" size="sm">${item.status === 'planned' ? 'Iniciar execução' : 'Concluir trabalho'} · ${escape(item.id)}</p-heading>${workStatusForm(item, item.status === 'planned' ? 'in_progress' : 'completed', item.status === 'planned' ? 'Iniciar trabalho' : 'Concluir trabalho')}</p-accordion>
         <p-accordion><p-heading slot="summary" tag="h4" size="sm">Cancelar trabalho · ${escape(item.id)}</p-heading>${workStatusForm(item, 'cancelled', 'Cancelar trabalho')}</p-accordion>` : ''}
-    </section>`).join('') : '<p-text size="sm">Nenhum trabalho planejado.</p-text>'}`);
+    </section>`).join('') : '<p-text size="sm">Nenhum trabalho corresponde aos filtros.</p-text>'}`);
 }
 
 function accessAuditExport() {
@@ -918,7 +955,7 @@ function governance() {
   const eventList = state.audit.length ? `<p-text-list class="record-list audit">${[...state.audit].reverse().map(auditEvent).join('')}</p-text-list>` : '<p-text color="contrast-high">Nenhum evento registrado.</p-text>';
   const actions = state.actions.length ? `<p-text-list class="record-list">${state.actions.map(actionCard).join('')}</p-text-list>` : '<p-text color="contrast-high">Nenhum plano de ação registrado.</p-text>';
   return `${heading('Plano de ação e auditoria', 'Acompanhe recomendações e consulte quem decidiu o quê, quando e por quê.')}
-    <div class="grid">${workPanel()}${workSummaryPanel()}</div><div class="grid"><div class="stack">${panel('Plano de ação', `${actions}${actionForm()}`)}${panel('Supervisão humana', supervision(state.case))}${supervisionPanel()}${caseAttachments()}${reportsPanel()}</div>${panel('Trilha de auditoria', '<div class="actions"><p-link variant="secondary" icon="none" href="/api/audit/export" download="elo-auditoria.json">Exportar pacote de auditoria</p-link></div><p-text size="sm" color="contrast-high">Pacote JSON dos registros sintéticos locais, com trilha e hashes SHA-256 para verificação independente de integridade. Não equivale a uma assinatura digital.</p-text>' + accessAuditExport() + eventList, status)}</div>`;
+    ${operationsPanel()}<div class="grid">${workPanel()}${workSummaryPanel()}</div><div class="grid"><div class="stack">${panel('Plano de ação', `${actions}${actionForm()}`)}${panel('Supervisão humana', supervision(state.case))}${supervisionPanel()}${caseAttachments()}${reportsPanel()}</div>${panel('Trilha de auditoria', '<div class="actions"><p-link variant="secondary" icon="none" href="/api/audit/export" download="elo-auditoria.json">Exportar pacote de auditoria</p-link></div><p-text size="sm" color="contrast-high">Pacote JSON dos registros sintéticos locais, com trilha e hashes SHA-256 para verificação independente de integridade. Não equivale a uma assinatura digital.</p-text>' + accessAuditExport() + eventList, status)}</div>`;
 }
 
 function render() {
@@ -1097,8 +1134,11 @@ view.addEventListener('submit', async (event) => {
       insightsError = '';
       workSummary = undefined;
       workSummaryError = '';
+      workFilters = { status: 'all', priority: 'all', owner: 'all', deadline: 'all', query: '' };
       supervisionResult = undefined;
       laboratoryResult = undefined;
+    } else if (endpoint === 'work-filter') {
+      workFilters = { status: payload.status, priority: payload.priority, owner: payload.owner, deadline: payload.deadline, query: (payload.query || '').trim() };
     } else if (endpoint === 'work/summary') {
       await refreshWorkSummary();
     } else if (endpoint === 'insights/read') {
@@ -1119,7 +1159,7 @@ view.addEventListener('submit', async (event) => {
       if (endpoint === 'evidence/upload') selectedFiles.delete(form.getAttribute('data-upload-key'));
       supervisionResult = undefined;
     }
-    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read', 'work/summary'].includes(endpoint)) await Promise.all([refreshInsights(), refreshWorkSummary()]);
+    if (state && !['login', 'laboratory/run', 'supervision/read', 'insights/read', 'work/summary', 'work-filter'].includes(endpoint)) await Promise.all([refreshInsights(), refreshWorkSummary()]);
     if (state) selectedCaseId = state.case?.id || null;
     const url = new URL(location.href);
     if (selectedCaseId) url.searchParams.set('case_id', selectedCaseId);

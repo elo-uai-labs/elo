@@ -1,0 +1,1 @@
+execucao_id,caso_id,fase,perfil_sintetico,commit_base,manifesto_sha256,modelo,prompt_versao,amostra_sha256,inicio,fim,minutos_humanos_ativos,minutos_espera,esperado,observado,fontes_ids,correcoes,omissoes,resultado,evidencia,responsavel_revisao,defeito_id
