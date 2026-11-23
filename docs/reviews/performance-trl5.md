@@ -37,3 +37,28 @@ Backup/restauração para destinos novos preserva estado/anexos/trilha e hash da
 A amostra de60s e41contratos amplia cobertura de concorrência funcional, não substitui ensaio de volume máximo ou observação prolongada. Não mede CPU/RSS/saturação, navegador, TLS, SSO/MFA, rede externa, múltiplas instâncias, participantes humanos, IA real ou OCR. Não há comparação causal antes/depois. A representatividade em relação ao ambiente pretendido continua hipótese a fundamentar separadamente.
 
 SHA-256 da evidência: `42bb3421db0b33597076970cfc202da45bf8bf612c817ed9da7405896f09170d`. Os hashes completos de execução estão no campo `source_sha256` e foram comparados aos arquivos locais pelo revisor.
+
+
+## Complemento independente: OCR e OpenAI durante leituras
+
+Revisado o commit `96c0e59a629fdf5c10081826e9943e85991164c5`, os dois launchers `scripts/trl-real-operation.py` e `.mjs`, seu protocolo e `output/validation/trl5/real-operation.json`. Não executei chamadas pagas nem repeti carga. **Aprovado como observação funcional curta com concorrência**, sem bloqueador no escopo declarado. Esta evidência não substitui o ensaio de 60s e não demonstra capacidade, saturação ou desempenho causal isolado; outras verificações locais podem compartilhar recursos da máquina.
+
+Conferi os critérios definidos no harness antes da rodada: zero erros inesperados, limite de duas tentativas pagas, documento OCR revisado citado, uso do provedor auditado, integridade/reinício e p95 de leituras inferior a 2s. A exigência de duas respostas na rodada real é mais estrita que o teto de duas tentativas. Os flags são exigidos antes de carregar o ambiente; a contagem ocorre antes de enviar cada chamada real e não há retry no harness. O cliente tem timeout de 15s, menor que os 30s do provedor: uma falha pode consumir tokens sem resposta persistida, limite documentado e não observado nesta rodada.
+
+Recontagem independente dos registros e recálculo do percentil por nearest-rank:
+
+| Medida | Valor conferido |
+| --- | --- |
+| Janela concorrente observada | 7,8013s |
+| Leituras de `/api/state` | 144, todas HTTP 200; 48 por conta |
+| p50 / p95 / máximo das leituras | 0,005924s / 0,013602s / 0,017913s |
+| OCR / dossiê / consulta | 0,3292s / 4,3341s / 3,1295s |
+| Total de respostas API / eventos de acesso | 157 / 157 |
+| Negativas esperadas / erros inesperados | 2 respostas 403 / 0 |
+| Tentativas pagas / respostas com uso persistido | 2 / 2, modelo `gpt-6.2-sol` |
+
+Os 157 registros se decompõem em 144 leituras, 10 requisições de preparação/revisão/reinício e uma requisição para cada operação OCR, dossiê e consulta. Readiness fica fora desse denominador. Cada status corresponde à expectativa e nenhum `error_type` foi registrado. Há três leitores em ciclo fechado, com espera de 150ms, e uma jornada serial de OCR/revisão/dossiê/consulta; não há três gerações ou três OCR simultâneos. Os tempos individuais de escrita incluem HTTP/processamento, e são uma amostra por operação, sem percentil ou SLA de IA/OCR. A janela não foi fixada antes em 7,8s: termina ao concluir a jornada.
+
+A fixture sintética `table.png` já estava exposta, conferida pelo hash e comparada ao gabarito após normalização NFC/espaços. A aceitação é automatizada pela conta de revisor e não corresponde a validação humana independente. As referências conhecidas no dossiê e o total 330,00 citado na consulta verificam este caso específico, sem estimativa de acurácia geral. Estado protegido permaneceu idêntico após a consulta; reinício preservou snapshot, ambas as cadeias foram verificadas e SQLite retornou `ok`.
+
+Todos os hashes `source_sha256` coincidiram com os arquivos locais no momento desta revisão. SHA-256 do relatório observado: `d1d0ebd4ce5938546e469036b52dd30174aae40a2c20e2b610ba03d9109a7a74`. A conclusão permanece restrita a laboratório sintético, contas locais e loopback, sem extrapolação para CAIXA, TRL5 homologado, produção, distribuição documental, desempenho prolongado ou latência futura do modelo.
