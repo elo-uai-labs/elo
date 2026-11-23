@@ -33,3 +33,11 @@ O instrumento inicialmente calculava SHA-256 de uma leitura do CSV e fazia o cá
 | src/main.js | f50dbb4d79f99744342264f3d0bf6f0715bcb1d6862a3c8e1b3b796c8a262c4f |
 | tests/supervision.cjs | aef7e96bdaebe24b8c2216a9ca0d639e471cf260b0e1dfdef4c7b086a715d0ce |
 | package.json | fc1b3cb00aec81480a01b68ec56787f3f70aa0ed4903c9a9468d1dcfaf16af1b |
+
+## Delta de projeção de leitura · 64de64f
+
+Revisão estática independente de `64de64f1b64d09420d168c22e27b0d1f21aa50d5`, sobre HEAD documental `c231833`: **sem achado bloqueador**. `Store.snapshot` materializa estado JSON, eventos e validação de arquivos dentro da transação consistente; não devolve cursor nem consulta preguiçosa. `Store.read` encerra a conexão antes da projeção em memória. A projeção sem cópia recebe exclusivamente esse objeto privado recém-materializado; `Store.apply` e chamadas públicas de `presentation` continuam com cópia defensiva padrão. Os sets aceleram a consulta de IDs processados somente em variável local; não entram no estado retornado/persistido e preservam a contagem de pendências, inclusive regras ainda não executadas.
+
+Conferidos os dois testes novos: escritor separado conclui durante projeção, mutação no resultado não afeta leitura posterior, projeção padrão não modifica a entrada e contagens equivalem às anteriores. Não foram repetidos testes pesados durante a carga em andamento. A revisão DBA independente `c231833` executou os dois testes e prova adicional de escrita de negócio durante projeção; aceites canônicos e de performance seguem com o orquestrador.
+
+Hashes: `backend/domain.py` = `f943739f52d1ae05fb67daf6cf594f29c7269ed298af8958409d1dd9c6620214`; `backend/tests/test_read_projection.py` = `39fe1d3e0e4c10981fdb3a8df564b1370cd668ef49f7c1651fdefea5293281fd`.
