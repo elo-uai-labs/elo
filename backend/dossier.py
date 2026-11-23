@@ -98,7 +98,7 @@ def generate_on_device(binary, evidence, ids, instructions=INSTRUCTIONS, allow_e
             process = subprocess.run([binary], input=json.dumps(payload), capture_output=True, text=True, check=True, timeout=remaining, env=environment)
             try:
                 output = json.loads(process.stdout)
-                return verified_dossier(output, output["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None)
+                return verified_dossier(output, output["model"], ids, allow_empty=allow_empty, evidence=evidence)
             except (ValueError, KeyError, TypeError, AttributeError):
                 if attempt:
                     raise
@@ -187,7 +187,7 @@ def generate_real(evidence, ids, instructions=INSTRUCTIONS, allow_empty=False, q
             raise ValueError("Incomplete model response")
         output = next(part["text"] for item in result["output"] if item["type"] == "message"
                       for part in item["content"] if part["type"] == "output_text")
-        return {**verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty, evidence=evidence if question is not None else None),
+        return {**verified_dossier(json.loads(output), result["model"], ids, allow_empty=allow_empty, evidence=evidence),
                 "usage": openai_usage(result.get("usage"))}
     except (URLError, TimeoutError, ValueError, KeyError, TypeError, AttributeError, StopIteration) as error:
         raise WorkflowError("A síntese por IA não foi concluída. Confira a configuração e tente novamente.", 502) from error
