@@ -37,3 +37,5 @@ Evidências: `output/validation/ocr-performance-regression/report.json` (SHA256 
 Relatório `output/validation/independent-ocr-first/report.json`:12arquivos, zero falhas, mediana0,3511s, p95/máximo0,7882s, todos abaixo30s. Triagem12/12 e CER1/1299. Nenhuma página dessa amostra acionou a segunda leitura; portanto ela sustenta ausência de regressão observada nos casos novos, **não valida independentemente o ramo novo de corroboração**. Esse ramo foi exercitado pela regressão antiga e testes de fronteira. Não houve segunda execução do corpus independente por este revisor.
 
 Medições foram sequenciais e terminadas antes da suíte canônica; não medem concorrência sustentada, documentos reais, throughput corporativo ou benefício humano. A aprovação deste parecer é de limites e latência local, não de precisão populacional.
+
+Nota de ambiente registrada pelo orquestrador: o host não estava reservado exclusivamente ao ensaio; revisões e testes locais de segurança ocorreram durante esta etapa. Não há garantia de ausência de sobreposição de processos. A medição terminou antes de iniciar a suíte canônica, mas não é um benchmark em máquina isolada.

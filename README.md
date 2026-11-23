@@ -145,7 +145,7 @@ A inicialização e os testes backend preferem esse Python quando presente; `PYT
 
 ## OCR local opcional
 
-No macOS com Swift/SDK, execute `npm run setup:ocr`. Em Plano e auditoria, anexe PNG, JPEG ou PDF sintético e escolha **Reconhecer texto**. A execução é local, separada da extração literal. Página, região, escores internos e versão ficam preservados; baixa confiança ou ausência de texto bloqueia aceitação. O revisor precisa conferir cada trecho no original. Consulte [preparação, limites e avaliação do OCR](docs/ocr.md).
+No macOS com Swift/SDK, execute `npm run setup:ocr`. Em Plano e auditoria, anexe PNG, JPEG ou PDF sintético e escolha **Reconhecer texto**. A execução é local, separada da extração literal. Página, região, escores internos e versão ficam preservados. Baixa confiança exige a corroboração limitada documentada; ausência de texto ou dúvida não corroborada mantém o bloqueio. A corroboração não prova exatidão nem dispensa revisão humana. O revisor precisa conferir cada trecho no original. Consulte [preparação, limites e avaliação do OCR](docs/ocr.md).
 
 ## Ampliação local após o diagnóstico
 

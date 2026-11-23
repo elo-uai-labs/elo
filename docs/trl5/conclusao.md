@@ -1,3 +1,5 @@
+> Rodada posterior: triagem OCR corrigida e nova avaliação independente concluída; veja [resultados e limites](../validacao-independente.md). O texto abaixo preserva a rodada histórica.
+
 # Conclusão técnica da rodada TRL
 
 Escopo: ampliar autonomamente as evidências para TRL5 do Elo, sem publicar, acessar sistemas da CAIXA, usar dados reais ou substituir avaliação humana. O [ambiente proposto](ambiente-relevante.md) e os protocolos foram definidos antes das execuções. Os resultados sustentam somente o ambiente simulado descrito.

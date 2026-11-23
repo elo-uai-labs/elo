@@ -1,3 +1,5 @@
+> Rodada posterior: triagem OCR corrigida e nova avaliação independente concluída; veja [resultados e limites](validacao-independente.md). O texto abaixo preserva a rodada histórica.
+
 > Atualização de 23/11: há uma avaliação posterior com corpus novo e resultados parciais. Consulte [avaliação TRL](trl-evaluation.md) e [conclusão](trl5/conclusao.md). Os resultados abaixo descrevem o conjunto anterior; não substituem as falhas posteriores nem certificam precisão geral.
 
 # Avaliação sintética de IA e OCR

@@ -1,3 +1,13 @@
+# Correção OCR e avaliação independente · 23/11/2026
+
+Orquestrador executado em paralelo. Correção `52bf46c`: segunda leitura limitada, conferência integral dos tokens e preservação de escores/avisos/revisão humana. Os três falsos inconclusivos conhecidos foram resolvidos: regressão7/7. Novo conjunto congelado antes da execução: **12/12triagens, CER1/1299 (0,077%)**, sem alteração do gabarito. Nenhum caso novo acionou o ramo de corroboração; esse ramo é coberto por regressão exposta e testes específicos.
+
+IA `gpt-6.2-sol`: **18/18 respostas**,32/32afirmações sustentadas na revisão independente; **1/28fatos esperados omitido**, sem sugestões inseguras. Critério estrito de completude não aprovado: pergunta pedia descrição literal, mas gabarito exigia também resultado do teste. Mantida a divergência sem ajustar critério ou repetir chamadas. Amostras e revisões são sintéticas/por agentes, não homologação humana ou prova de representatividade.
+
+**Build e suíte canônica aprovados:244testes backend+5offline**, jornadas desktop/celular, autenticação, operações, supervisão e PDS/Porsche Next. Revisões geral, segurança e performance sem bloqueadores novos locais. Servidor local atualizado e saudável; banco manual preservado, sem publicação. [Resultados, evidências e pendências](validacao-independente.md). Os registros abaixo são históricos; TRL5 continua não declarado.
+
+---
+
 # Evidências autônomas para TRL 5 · 23/11/2026
 
 Rodada pelo orquestrador concluída: fonte HTTP separada com importação paginada/atômica, operação mista autenticada, recuperação após reinício e interrupção dentro da transação, novo conjunto IA/OCR congelado e ensaio com OCR/OpenAI reais durante leituras concorrentes. [Conclusão e pendências](trl5/conclusao.md), [ambiente proposto](trl5/ambiente-relevante.md) e [execução](trl5/execucao.md).

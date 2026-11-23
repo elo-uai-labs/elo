@@ -12,6 +12,29 @@ IA: até 20 chamadas reais explícitas ao modelo configurado, sem repetição au
 
 Revisões previstas: geral, segurança (entrada documental não confiável) e performance (processamento OCR), com revisores distintos do implementador e entre as especialidades. DBA não se aplica se não houver mudança de persistência, SQL ou transações. Verificações canônicas: `npm run build`, `npm test`, além das avaliações e regressões específicas. Nenhuma alteração visual prevista; suíte existente verifica desktop/celular/PDS.
 
-## Estado
+## Resultados
 
-Em execução. Resultados, commits e pendências serão registrados após os testes; nenhum aceite antecipado.
+Correção `52bf46c`: segunda leitura de layout nas páginas de baixa confiança, dentro do mesmo orçamento. Texto principal, escores e aviso de dúvida preservados; texto só vira fonte após revisão OCR explícita. Tokens devem coincidir integralmente; leitura secundária deve atingir o limiar, com exceção provisória e estreita do hífen separador descrita em [OCR](ocr.md). Sem mudanças de SQL, schema ou interface.
+
+| Critério | Resultado | Evidência e limite |
+| --- | --- | --- |
+| Três falsos inconclusivos conhecidos | Corrigidos; triagem7/7, CER0/1170 | Regressão exposta, não conjunto independente |
+| Novo OCR congelado em e3a1691 | Aprovado:12/12triagens, CER1/1299 (0,077%), branco0 | Nove legíveis distintos; erro de acento em JPEG preservado |
+| Segunda leitura | Testes e regressão exposta aprovados | Nenhum arquivo do novo corpus acionou essa ramificação |
+| IA congelada em b399d05 | 18/18 respostas, abstenção18/18, referências32/32 | 12assistentes+6dossiês, gpt-6.2-sol,18chamadas sem retry |
+| Sustentação semântica IA | 32/32 afirmações sustentadas; nenhuma sugestão insegura em18 | Revisão por agente distinto do runtime e autor do conjunto |
+| Completude IA | Critério estrito não aprovado:1/28 fato omitido | Pergunta literal mais estreita que o gabarito; sem alterar retrospectivamente critérios |
+
+[Protocolo OCR](ocr-independent-protocol.md), [avaliação IA e omissão](independent-ai-evaluation.md). OCR novo:p50=.3511s,p95/máxima=.7882s. Regressão OCR medida por outro revisor:p50=.3952s,p95/máxima=1.1529s,3arquivos com segunda leitura. IA:p50=3.4409s,p95/máxima=4.4602s,8.273tokens medidos. Tempos locais descritivos, sem estimar capacidade corporativa.
+
+Revisões independentes: [geral](reviews/general-independent.md) (`8ad3f46`), [segurança](reviews/security-independent.md) (`201f790`), [performance](reviews/performance-independent.md) (`2f834bc`). Sem bloqueadores novos no escopo local; DBA não acionado porque não houve mudança de SQL/persistência. Teste de workflow adicional cobre metadados, revisão, exportação e backup em banco temporário.
+
+Relatórios preservados em `output/validation/independent-ocr-first/`, `independent-ai-first/` e `ocr-performance-regression/`. Primeiras avaliações históricas e ZIP anterior mantidos, com hashes registrados em `independent-closure/prior-artifact-hashes.json`. Amostras são sintéticas e produzidas por agentes separados; contexto herdado impede alegar cegamento absoluto. Duas leituras da mesma engine também não são verificações estatisticamente independentes.
+
+## Verificação final e pendências
+
+`npm run build` e `npm test` aprovados: **244 testes backend +5 testes offline**, jornadas integrada, autenticada, operações e supervisão, desktop/celular/PDS4.10.1/Porsche Next. Logs em `output/validation/independent-closure/`. Servidor local reiniciado com o código corrigido; API e frontend responderam200. Banco manual não usado pelos testes. Não há mudança do prompt de IA nesta rodada, nem chamada paga no teste padrão. A rodada de IA avaliou o gerador com as instruções reais; integração HTTP/UI possui verificação canônica separada.
+
+Mantém-se pendente comprovar representatividade do ambiente/documentos e validar benefício/uso humano. A avaliação estrita IA não recebeu aprovação integral por causa da omissão descrita; uma nova avaliação deve alinhar pergunta e gabarito antes de congelar outro conjunto, sem reclassificar este resultado. Erros OCR continuam possíveis mesmo com escore alto; conferência humana permanece necessária. A nova evidência não declara TRL5.
+
+Pacote desta rodada: `output/independent-validation/elo-validacao-independente.zip`, com manifestos, gabaritos, relatórios, revisões, logs e arquivos de implementação selecionados. Segredos e bancos excluídos; ZIP histórico não foi sobrescrito.
