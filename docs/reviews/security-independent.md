@@ -1,0 +1,18 @@
+# Revisão independente de segurança — OCR v2
+
+Revisor: `/root/ocr_independente`, distinto do implementador `/root/ocr_correcao`; autor do corpus independente, não do runtime. Escopo: commit `52bf46c80dd888a576a13e8cec19f95de71ea55d`, principalmente `backend/ocr.py` (SHA-256 `0508437069decfab5762999fcbe4a62a947e965414ec5611fcd6d85ff5bdaae5`), testes e integração de revisão humana existente. Revisão de código e execução local em 23/11/2026. Sem alteração do runtime, banco manual ou credenciais.
+
+**Resultado: sem bloqueador novo identificado no escopo local/sintético.** O relaxamento da triagem é explícito e limitado; não transforma o OCR em verificação de verdade. A exceção do hífen é heurística dirigida ao defeito conhecido e não oferece garantia semântica. A eventual equivalência das duas leituras pode repetir o mesmo erro.
+
+Verificações:
+
+- Entrada continua limitada a PNG/JPEG/PDF, bytes não vazios até 1 MiB; páginas/pixels e raster temporário preservam os limites existentes. Comandos usam argumentos em lista, sem shell; a nova leitura só muda PSM para 11.
+- Segunda leitura é condicional por página com escore baixo, no máximo uma confirmação. Usa o mesmo orçamento remanescente global de 30 s; timeout devolve inconclusivo e limpa diretório temporário. Não há aumento do prazo nem retry ilimitado.
+- TSV é limitado a 300.000 bytes após captura, cada conjunto a 500 segmentos e texto validado a 32 KiB. Segunda leitura passa pela validação estrutural, confiança finita, limites de coordenadas, página e consistência palavras/texto/mínimo. Não adiciona rede ou persistência própria.
+- Corroboração exige igualdade de todos os tokens da página, inclusive números, acentos e pontuação, além do critério de confiança ou exceção explícita do separador. Divergência numérica, sinal financeiro, ID ou omissão não é corrigida/substituída silenciosamente. Mínimos, flag de baixa confiança, texto principal, política e segunda leitura ficam preservados.
+- Folha vazia, conteúdo deliberadamente ilegível e página sem texto continuam inconclusivos na amostra independente. Isso não prova rejeição de todo documento ilegível: erro com confiança alta continua possível e foi observado um acento errado em JPEG legível.
+- `document_analysis.review` continua recusando aceitar inconclusivo e exige `confirmed` + `confirmed_ocr` verdadeiros, ator/justificativa; `sources` só inclui análises aceitas. Os testes de workflow cobrem recusa sem confirmação e preservação em exportação/backup.
+
+**Execução independente:** `.venv/bin/python3 -m unittest discover -s backend/tests -p 'test_ocr*.py' -v`: 23 testes aprovados em 6,760 s. Log `output/validation/independent-ocr-first/security-tests.log`. Corpus congelado em `e3a1691`, diferença zero antes da execução: 12/12 triagens; zero falhas; CER 1/1299 nos nove legíveis; zero caracteres na folha vazia. Relatório `output/validation/independent-ocr-first/report.json`, SHA-256 `1d26f5099e653fa2b7b12c4f49a4807a0e4cc50e9f3a44ec1a3d4e4d9c17bfc7`. Os casos novos não acionaram baixa confiança/corroboração: a evidência específica da nova ramificação vem dos testes focados e da regressão de desenvolvimento, não deste holdout.
+
+Limites: não houve fuzzing nem pentest corporativo. `subprocess.PIPE` captura saída antes da verificação de tamanho, e não há teto rígido de memória macOS; são limites existentes, não uma certificação para entrada hostil. O prazo é aplicado aos subprocessos, não interrupção dura de toda instrução Python/IO. A tabela de moedas da exceção do hífen é parcial e não interpreta linguagem natural. A revisão humana e o escopo local/sintético permanecem necessários; concordância de layout não implica leitores estatisticamente independentes.
