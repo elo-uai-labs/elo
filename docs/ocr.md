@@ -24,7 +24,7 @@ O original, seu hash, o método, a versão do motor, a página, a região, os es
 
 - Arquivo até 1 MiB; PNG/JPEG até 12 milhões de pixels; PDF até cinco páginas, rasterizado com lado máximo de 2.048 pixels.
 - Texto até 32 KiB; execução isolada com timeout global de 30 segundos e Tesseract limitado a uma thread; somente uma extração em andamento por servidor.
-- Ausência de texto/página sem reconhecimento ou escore de trecho abaixo de 0,8 torna o resultado inconclusivo e bloqueia aceitação. Limiar conservador provisório, não calibrado com documentos da CAIXA.
+- Ausência de texto/página sem reconhecimento torna o resultado inconclusivo. Escore abaixo de 0,8 exige corroboração limitada descrita abaixo; sem ela, bloqueia aceitação. O limiar continua provisório, sem calibração com documentos da CAIXA.
 - Uma página pode conter texto ou objetos que o motor omita mesmo com escores altos nos trechos reconhecidos. Por isso a revisão cobre também omissões, números, identificadores, acentos e ordem de leitura.
 - Não recupera estrutura de tabelas, assinaturas ou autenticidade. Imagens ruins, texto manuscrito e documentos complexos exigem avaliação específica. Não há homologação corporativa nem garantia de precisão geral.
 
@@ -47,3 +47,18 @@ Evidências regeneráveis: `output/validation/ocr-quality.json`, `ocr-performanc
 Segurança, DBA, revisão geral e performance foram avaliadas por agentes independentes dos implementadores dos respectivos trechos, com hashes vinculados ao commit `d3bdc7e`. Ajustes incluíram validação de TSV truncado, descoberta do executável fora do shell de login e descrição correta de fontes OCR no assistente. Revisão de dados incluiu dez disputas de aceite entre métodos do mesmo anexo (sempre um sucesso/uma recusa), preservação de registros v2 sem `method`, exportação e backup com regiões/escores.
 
 O ambiente continua local/sintético. No macOS não há teto rígido de memória para o rasterizador; limites de entrada, pixels, páginas, CPU e tempo reduzem risco, mas não certificam resistência a documentos hostis ou capacidade corporativa. Não houve publicação ou uso do banco manual em testes.
+
+
+## Correção de triagem v2 · política congelada antes da validação independente
+
+O corpus de desenvolvimento `tests/fixtures/trl-evaluation/ocr.json`, já exposto, mostrou dois mecanismos distintos: PNG/JPEG reconheciam o hífen após `CTR-701` corretamente com escore baixo; no PDF, a letra `A` de `Servico A` tinha escore 0,693. A regra do mínimo de todas as palavras bloqueava a revisão desses documentos apesar de o texto estar correto. Essa constatação é específica do conjunto conhecido.
+
+`elo-tesseract-ocr-v2` aplica `layout-corroboration-v1`: somente uma página com escore abaixo de 0,8 recebe uma segunda leitura, PSM11, após a leitura PSM3. O texto principal nunca é substituído. A sequência de todos os tokens da página deve coincidir exatamente, incluindo números, acentos e pontuação; apenas limites de linhas/espaços de layout podem diferir. Não há consulta ao gabarito no runtime.
+
+- Quando todos os tokens da segunda leitura atingem 0,8, a página pode seguir para revisão humana. Isso inclui um número cuja primeira leitura tenha escore baixo: a igualdade textual e o limiar da segunda leitura são necessários, mas não comprovam exatidão.
+- Exceção provisória dirigida ao defeito conhecido: se as duas leituras têm baixa confiança somente em hífen isolado entre um identificador `CTR|FOR|EMP|DOC` e um rótulo alfabético, na mesma linha de cada leitura, permite revisão. Não permite sinal diante de número, moeda, intervalo entre IDs, sinal de soma ou conteúdo fraco. Códigos de moeda usuais são recusados. Esta heurística não interpreta o significado e não prova que o hífen esteja correto.
+- Divergência em qualquer token, omissão, baixa confiança não abrangida, erro ou timeout mantém bloqueio. Página vazia continua inconclusiva. Não há terceira tentativa ou seleção da resposta com maior confiança.
+- Mínimos/escores originais e o flag `low_confidence` são preservados. A interface existente exibe o aviso e a nota da corroboração; para o hífen, informa que permanece incerto. Palavras/escores das duas leituras e política aplicada ficam nos metadados auditáveis, inclusive exportação e backup. A revisão OCR explícita continua obrigatória antes de virar fonte de IA.
+- Limites continuam 30 segundos globais compartilhados entre rasterização e ambas as leituras, cinco páginas, 500 segmentos por leitura e 32KiB por texto. Nada é enviado externamente; não há mudança de SQL, schema, OCR Swift ou UI.
+
+A regressão exposta passou 7/7 triagens, mantendo os textos originais, vazio e degradado bloqueados. Evidência: `output/validation/ocr-correction-development.json`. Esse resultado é desenvolvimento, não validação independente nem precisão geral. A validação independente será relatada pelo orquestrador separadamente, sem usar suas fixtures para ajustar esta política. Novos testes cobrem divergência numérica/pontuação, sinais financeiros, intervalos, mudança de linha, metadados malformados, segunda leitura dentro do orçamento e limpeza após timeout, além de revisão obrigatória/exportação/backup com banco temporário.

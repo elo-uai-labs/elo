@@ -12,12 +12,14 @@ import time
 import json
 import math
 import os
+import re
 from pathlib import Path
 import subprocess
 
 from domain import WorkflowError
 
-VERSION = 'elo-tesseract-ocr-v1'
+VERSION = 'elo-tesseract-ocr-v2'
+TRIAGE_POLICY = 'layout-corroboration-v1'
 MAX_BYTES = 1024 * 1024
 MAX_TEXT_BYTES = 32768
 MAX_SEGMENTS = 500
@@ -70,6 +72,51 @@ def _number(value):
     return type(value) in (int, float) and math.isfinite(value)
 
 
+def _tokens(segments):
+    """Return validated raw word scores without discarding punctuation."""
+    tokens = []
+    for row in segments:
+        words = row.get('words')
+        if not isinstance(words, list) or not words or any(
+                not isinstance(word, dict) or set(word) != {'text', 'confidence'}
+                or not isinstance(word['text'], str) or not word['text'] or any(c.isspace() for c in word['text'])
+                or not _number(word['confidence']) or not 0 <= word['confidence'] <= 1 for word in words):
+            return None
+        if ' '.join(word['text'] for word in words) != row['text'] or min(word['confidence'] for word in words) != row['confidence']:
+            return None
+        tokens.extend(words)
+    return tokens
+
+
+def _separator_candidate(rows):
+    """Only an ID followed by a textual label; never a minus/range/currency."""
+    tokens = _tokens(rows)
+    if not tokens:
+        return False
+    weak = [word for word in tokens if word['confidence'] < CONFIDENCE_THRESHOLD]
+    if not weak:
+        return False
+    for row in rows:
+        words = row['words']
+        for i, word in enumerate(words):
+            if word['confidence'] >= CONFIDENCE_THRESHOLD:
+                continue
+            if not (0 < i < len(words) - 1 and word['text'] == '-'
+                    and re.fullmatch(r'(?:CTR|FOR|EMP|DOC)-[A-Z0-9]+', words[i - 1]['text']) is not None
+                    and len(words[i + 1]['text']) >= 2 and words[i + 1]['text'].isalpha()
+                    and words[i + 1]['text'].upper() not in {'BRL', 'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD'}):
+                return False
+    return True
+
+
+def _corroborates(primary, secondary):
+    # Same engine, different layout assumption: agreement is not independent truth.
+    first, second = _tokens(primary), _tokens(secondary)
+    return bool(first and second
+        and [word['text'] for word in first] == [word['text'] for word in second]
+        and (all(word['confidence'] >= CONFIDENCE_THRESHOLD for word in second) or (_separator_candidate(primary) and _separator_candidate(secondary))))
+
+
 def _validate(result):
     """Validate worker structure and derive triage; this does not verify text truth."""
     if not isinstance(result, dict):
@@ -96,6 +143,13 @@ def _validate(result):
         raise ValueError('engine')
     if not isinstance(segments, list) or len(segments) > MAX_SEGMENTS:
         raise ValueError('segments')
+    secondary = result.get('secondary_segments', [])
+    if not isinstance(secondary, list) or len(secondary) > MAX_SEGMENTS:
+        raise ValueError('secondary segments')
+    if secondary:
+        # Reuse the structural validator without recursively accepting corroboration.
+        secondary_pages = {row.get('page') for row in secondary if isinstance(row, dict)}
+        _validate({'segments': secondary, 'pages': pages, 'missing_pages': sorted(page_ids - secondary_pages), 'engine': engine})
     cleaned = []
     for segment in segments:
         if not isinstance(segment, dict) or type(segment.get('page')) is not int or segment['page'] not in page_ids:
@@ -113,6 +167,10 @@ def _validate(result):
         bbox = {key: round(float(value), 6) for key, value in bounds.items()}
         location = f"Página {segment['page']} · região OCR x={bbox['x']:.3f}, y={bbox['y']:.3f}, largura={bbox['width']:.3f}, altura={bbox['height']:.3f}"
         cleaned.append({'page': segment['page'], 'location': location, 'text': text, 'confidence': float(confidence), 'bbox': bbox})
+        if 'words' in segment:
+            if _tokens([segment]) is None:
+                raise ValueError('word scores')
+            cleaned[-1]['words'] = segment['words']
     observed = {segment['page'] for segment in cleaned}
     if set(missing) != page_ids - observed:
         raise ValueError('missing coverage')
@@ -123,13 +181,23 @@ def _validate(result):
     flags = (['no_text'] if not scores else []) + (['pages_without_text'] if missing else [])
     if scores and min(scores) < CONFIDENCE_THRESHOLD:
         flags.append('low_confidence')
-    complete = bool(scores) and not flags
+    low_pages = {row['page'] for row in cleaned if row['confidence'] < CONFIDENCE_THRESHOLD}
+    corroborated = [page for page in sorted(low_pages) if _corroborates(
+        [row for row in cleaned if row['page'] == page], [row for row in secondary if row['page'] == page])]
+    complete = bool(scores) and not missing and set(corroborated) == low_pages
+    note = CONFIDENCE_NOTE
+    if corroborated:
+        note += ' Há escores originais abaixo do limiar; uma segunda leitura de layout corroborou o texto integral da página. Confira especialmente os trechos com escore baixo no original. Concordância não comprova exatidão.'
+        if any(_separator_candidate([row for row in secondary if row['page'] == page]) for page in corroborated):
+            note += ' Hífen separador após identificador permanece incerto nas duas leituras; confira esse sinal.'
     return {'text': text, 'segments': cleaned, 'pages': pages, 'missing_pages': missing,
         'extraction_status': 'complete' if complete else 'inconclusive', 'engine': engine,
         'quality': {'assessment': 'review_required' if complete else 'inconclusive',
                     'minimum_confidence': min(scores) if scores else None,
                     'mean_confidence': sum(scores) / len(scores) if scores else None,
-                    'threshold': CONFIDENCE_THRESHOLD, 'confidence_note': CONFIDENCE_NOTE, 'flags': flags},
+                    'threshold': CONFIDENCE_THRESHOLD, 'confidence_note': note, 'flags': flags,
+                    'triage_policy': TRIAGE_POLICY, 'corroborated_pages': corroborated,
+                    'secondary_segments': secondary},
         'limitations': LIMITATIONS}
 
 
@@ -160,6 +228,7 @@ def _tsv_segments(raw, page):
         entry['left'] = min(entry['left'], x); entry['top'] = min(entry['top'], y)
         entry['right'] = max(entry['right'], x + width); entry['bottom'] = max(entry['bottom'], y + height)
     return [{'page': page['page'], 'text': ' '.join(line['words']), 'confidence': min(line['scores']),
+             'words': [{'text': word, 'confidence': score} for word, score in zip(line['words'], line['scores'])],
              'bbox': {'x': line['left'] / page['width'], 'y': line['top'] / page['height'],
                       'width': (line['right'] - line['left']) / page['width'],
                       'height': (line['bottom'] - line['top']) / page['height']}}
@@ -194,7 +263,7 @@ def extract(content, media_type):
             return _inconclusive('reader_unavailable')
         engine = {'name': 'Tesseract', 'version': VERSION, 'runtime_version': version.stdout.decode('utf-8').splitlines()[0],
                   'os': os.uname().sysname + ' ' + os.uname().release, 'languages': ['por', 'eng'],
-                  'rasterizer': 'PDFKit/ImageIO', 'binary_sha256': binary_hash, 'compute': 'CPU', 'page_segmentation_mode': 3, 'models': MODELS}
+                  'rasterizer': 'PDFKit/ImageIO', 'binary_sha256': binary_hash, 'compute': 'CPU', 'page_segmentation_mode': 3, 'conditional_confirmation_psm': 11, 'models': MODELS}
         with tempfile.TemporaryDirectory(prefix='elo-ocr-') as directory:
             # Directory mode 0700; generated PNGs mode 0600; always removed, including on timeout.
             result = run([str(path), media_type, directory], input=content)
@@ -203,7 +272,7 @@ def extract(content, media_type):
             pages = json.loads(result.stdout)
             if not isinstance(pages, list) or not 1 <= len(pages) <= MAX_PAGES:
                 return _inconclusive('invalid_reader_output', engine)
-            segments, missing = [], []
+            segments, missing, secondary = [], [], []
             for number, page in enumerate(pages, 1):
                 if not isinstance(page, dict) or page.get('page') != number or any(type(page.get(k)) is not int or not 1 <= page[k] <= 12000 for k in ('width', 'height')) or page['width'] * page['height'] > MAX_PIXELS:
                     return _inconclusive('invalid_reader_output', engine)
@@ -214,12 +283,19 @@ def extract(content, media_type):
                 if recognized.returncode != 0:
                     return _inconclusive('recognizer_failed_or_language_unavailable', engine)
                 rows = _tsv_segments(recognized.stdout, page)
+                if any(row['confidence'] < CONFIDENCE_THRESHOLD for row in rows):
+                    confirmation = run([recognizer, str(image), 'stdout', '--tessdata-dir', str(MODEL_DIRECTORY), '-l', 'por+eng', '--psm', '11', '-c', 'tessedit_create_tsv=1'])
+                    if confirmation.returncode != 0:
+                        return _inconclusive('recognizer_failed_or_language_unavailable', engine)
+                    secondary.extend(_tsv_segments(confirmation.stdout, page))
+                    if len(secondary) > MAX_SEGMENTS:
+                        return _inconclusive('output_limit_exceeded', engine)
                 if not rows:
                     missing.append(number)
                 segments.extend(rows)
                 if len(segments) > MAX_SEGMENTS:
                     return _inconclusive('output_limit_exceeded', engine)
-            return _validate({'segments': segments, 'pages': pages, 'missing_pages': missing, 'engine': engine})
+            return _validate({'segments': segments, 'pages': pages, 'missing_pages': missing, 'engine': engine, 'secondary_segments': secondary})
     except subprocess.TimeoutExpired:
         return _inconclusive('processing_timeout', locals().get('engine'))
     except OSError:

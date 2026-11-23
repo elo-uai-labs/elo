@@ -118,6 +118,25 @@ class OcrWorkflowTest(OcrFixture):
                 self.assertEqual(state['document_analyses'][-1]['status'], 'rejected')
                 self.assertEqual(sources(state, 'ELO-1042'), [])
 
+    def test_corroborated_low_score_still_requires_review_and_survives_backup(self):
+        from test_ocr_corroboration import row, result
+        primary = [row(['CTR-701', '-', 'Fornecedor'], [.95, .52, .95])]
+        secondary = [row(['CTR-701', '-', 'Fornecedor'], [.95, .76, .95])]
+        recognized = result(primary, secondary)
+        entry = self.analyze(self.upload(), recognized)
+        self.assertEqual(entry['extraction_status'], 'complete')
+        self.assertEqual(entry['status'], 'pending')
+        self.assertEqual(sources(self.store.read(), 'ELO-1042'), [])
+        with self.assertRaises(WorkflowError):
+            self.review(entry, confirmed_ocr=False)
+        self.review(entry, confirmed_ocr=True)
+        before = self.store.export_state(include_files=True)
+        self.assertEqual(before['document_analyses'][-1]['ocr']['quality'], recognized['quality'])
+        self.assertEqual(before['document_analyses'][-1]['segments'], recognized['segments'])
+        self.assertTrue(verify_export(build_export(before)))
+        verified_copy(self.store.path, self.root / 'corroborated.sqlite3')
+        self.assertEqual(Store(self.root / 'corroborated.sqlite3').export_state(include_files=True), before)
+
     def test_ocr_after_literal_inconclusive_preserves_old_review_and_prevents_duplicate_method(self):
         metadata = self.upload(pdf=True)
         with patch('document_analysis._pdf', return_value={'segments': [], 'missing_pages': [1]}):
