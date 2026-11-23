@@ -33,3 +33,13 @@ Servidor parado: backup e restauração para caminhos novos são verificados, co
 ## Limites
 
 A base pequena e os60s ampliam a cobertura de concorrência funcional; não substituem a sondagem de2.000contratos nem sustentação em dias. Neste ensaio não entram navegador/renderização, usuários humanos, SSO/MFA, TLS, nuvem, rede externa, IA real ou OCR. Documentos são TXT e a síntese é local. IA/OCR reais têm avaliação separada e seus tempos não são atribuídos a esta carga. Backup não inclui configuração de contas/segredos. Sem metodologia oficial ou distribuição real conhecida, a representatividade de domínio permanece hipótese.
+
+## Resultado observado · 23/11/2026
+
+Execução do commit `fc7b248ae5c82bf7a875f18c0b901b64574c7dd0`,60s programados/60,363s observados. **Aprovado no protocolo delimitado**:1.251requisições durante carga e1.288respostas API no ensaio completo;1.288eventos de acesso correspondentes,zero erros inesperados.99negativas/conflitos esperados no total, incluindo90conflitos409 durante a carga. Leituras:792requisições,p50=.01976s,p95=.05475s,p99=.07223s. Escritas200 durante carga:p95=.07833s; negativas não entram nesse percentil de sucesso.
+
+Concluídos90trabalhos. Durante a carga ocorreram9importações/detecções/dossiês locais e18ciclos de anexo/extrair/revisar/consultar. Estado final:41contratos,40casos,19anexos,1relatório aprovado,384eventos de negócio,plano encerrado. SQLite e ambas as trilhas válidos; contagens de trabalhos e acessos reconciliadas.
+
+Interrupção após quiescência preservou o snapshot reconhecido e invalidou a sessão anterior. Reinício até health=.231s; backup+restauração verificados=.043s. Esses tempos medem apenas a base pequena e o procedimento específico, não RTO/RPO contratual. Expiração de sessão, logout e conta desativada após reinício passaram. Cópia restaurada preservou dados/anexos/trilhas e origem permaneceu idêntica.
+
+Evidências: `output/validation/trl-operation.json` (critérios, hashes, tempos e metadados de cada requisição), `trl-operation-smoke.json` (verificação anterior, não carga). A avaliação de IA em outra frente podia realizar chamadas de rede no mesmo computador; a execução de OCR/carga pesada foi coordenada para não concorrer. Não há isolamento físico de todos os processos do host nem ensaio de capacidade universal.
