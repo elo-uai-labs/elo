@@ -49,7 +49,7 @@ class DocumentHttpTest(unittest.TestCase):
         self.assertEqual(self.request('/api/document/record', {'actor': 'Demo', 'analysis': {}})[0], 404)
         self.assertEqual(self.store.read(), before)
         status, _, state = self.request('/api/evidence/analyze', {'actor': 'Demo', 'attachment_id': 'EVD-0001',
-            'analysis': {'text': 'FORGED', 'status': 'accepted'}, 'mode': 'real'})
+            'analysis': {'text': 'FORGED', 'status': 'accepted'}, 'mode': 'literal'})
         self.assertEqual(status, 200)
         entry = state['document_analyses'][0]
         self.assertEqual(entry['text'], 'Literal CTR-1042 FOR-UNKNOWN.')

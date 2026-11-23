@@ -82,9 +82,12 @@ class EloServer(ThreadingHTTPServer):
             authorize(snapshot)
         require(len(snapshot.get("document_analyses", [])) < 200, "Limite local de 200 análises atingido.")
         metadata, content = self.store.evidence_file(required(data, "attachment_id", 32))
+        mode = data.get("mode", "literal")
+        require(mode in ("literal", "ocr"), "Escolha extração literal ou OCR local.")
+        require(not any(row["attachment_id"] == metadata["id"] and row.get("method", "literal") == mode for row in snapshot.get("document_analyses", [])), "Este arquivo já foi analisado por este método.")
         require(self.document_lock.acquire(blocking=False), "Já existe uma extração em andamento. Tente novamente após a conclusão.")
         try:
-            generated = document_analysis.extract(snapshot, metadata, content)
+            generated = document_analysis.extract(snapshot, metadata, content, mode=mode)
             return self.store.apply("document/record", {"actor": actor, "case_id": metadata["case_id"], "analysis": generated}, authorize=authorize)
         finally:
             self.document_lock.release()

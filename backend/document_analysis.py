@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from domain import WorkflowError, required, require, serialize
 
 MAX_TEXT_BYTES = 32768
-VERSION = 'elo-document-review-v2'
+VERSION = 'elo-document-review-v3'
 XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 
@@ -84,14 +84,21 @@ def _sheet_segments(content, media):
     return segments
 
 
-def extract(state, metadata, content):
+def extract(state, metadata, content, mode="literal"):
     media = metadata['media_type']
-    require(media in ('text/plain', 'text/csv', 'application/pdf', XLSX_TYPE),
-            'Análise disponível para TXT, CSV, XLSX e PDF digital. Imagens precisam de OCR, ainda não implementado.')
+    require(mode in ('literal', 'ocr'), 'Escolha extração literal ou OCR local.')
+    allowed = ('image/png', 'image/jpeg', 'application/pdf') if mode == 'ocr' else ('text/plain', 'text/csv', 'application/pdf', XLSX_TYPE)
+    require(media in allowed, 'Formato incompatível com o método de extração selecionado.')
     require(len(content) <= 1024 * 1024, 'A análise aceita arquivos de até 1 MiB.')
     require(hashlib.sha256(content).hexdigest() == metadata['sha256'], 'O arquivo não corresponde à fonte preservada.')
     missing = []
-    if media == 'text/plain':
+    recognition = None
+    if mode == 'ocr':
+        import ocr
+        recognition = ocr.extract(content, media)
+        segments, missing = recognition['segments'], recognition['missing_pages']
+        text = '\n'.join(f"[{row['location']}] {row['text']}" for row in segments)
+    elif media == 'text/plain':
         require(len(content) <= MAX_TEXT_BYTES, 'A análise aceita TXT de até 32 KiB, sem truncar o documento.')
         text = _utf8(content)
         require(bool(text.strip()), 'O documento não contém texto para analisar.')
@@ -110,16 +117,19 @@ def extract(state, metadata, content):
     known = {row['id'] for table in state['dataset'].values() for row in table}
     mentions = sorted(set(re.findall(r'\b(?:CTR|FOR|EMP)-[A-Za-z0-9_-]+', text)))
     require(len(mentions) <= 100, 'O documento excede 100 identificadores; divida o arquivo.')
-    complete = bool(text.strip()) and not missing
+    complete = bool(text.strip()) and not missing and (recognition is None or recognition['extraction_status'] == 'complete')
     limitations = ('Extração literal sem IA, OCR ou inferência de vínculo. PDF pode perder ordem visual; planilhas mostram valores literais, sem executar fórmulas. '
                   'Referências não comprovam fatos; confira cada página/célula no original antes de aceitar.')
+    if recognition is not None:
+        limitations = recognition['limitations'] + ' Confira cada trecho com a imagem original. OCR não decide vínculos ou impactos.'
     if not complete:
-        limitations += ' Extração inconclusiva: páginas sem texto digital ' + ', '.join(map(str, missing)) + '. Revisão de aceitação bloqueada; não há OCR.'
+        limitations += ' Extração inconclusiva. Aceitação como fonte bloqueada; confira o original.'
     return {'attachment_id': metadata['id'], 'case_id': metadata['case_id'], 'sha256': metadata['sha256'],
             'text': text, 'segments': segments, 'extraction_status': 'complete' if complete else 'inconclusive',
             'missing_pages': missing, 'record_ids': [identifier for identifier in mentions if identifier in known],
             'unknown_ids': [identifier for identifier in mentions if identifier not in known],
-            'processor': VERSION, 'status': 'pending', 'limitations': limitations}
+            'processor': VERSION, 'method': mode, 'ocr': ({'engine': recognition['engine'], 'quality': recognition['quality'], 'pages': recognition.get('pages', [])} if recognition else None),
+            'status': 'pending', 'limitations': limitations}
 
 
 def record(state, data):
@@ -127,14 +137,14 @@ def record(state, data):
     result = data['analysis']  # Only trusted server command may supply this structure.
     entries = state.setdefault('document_analyses', [])
     require(len(entries) < 200, 'Limite local de 200 análises de documentos atingido.')
-    require(not any(row['attachment_id'] == result['attachment_id'] for row in entries), 'Este arquivo já foi analisado; consulte a análise preservada.')
+    require(not any(row['attachment_id'] == result['attachment_id'] and row.get('method', 'literal') == result.get('method', 'literal') for row in entries), 'Este arquivo já foi analisado por este método; consulte a análise preservada.')
     source = next((row for row in state['attachments'] if row['id'] == result['attachment_id']), None)
     require(source is not None and source['sha256'] == result['sha256'] and source['case_id'] == result['case_id'], 'Fonte alterada ou indisponível.')
     entry = {**deepcopy(result), 'id': f'DOC-{len(entries)+1:03}', 'actor': actor,
              'created_at': datetime.now(timezone.utc).isoformat(timespec='milliseconds'), 'review': None}
     entry['revision'] = revision(entry)
     entries.append(entry)
-    return 'Texto do documento analisado localmente', actor, {'analysis_id': entry['id'], 'attachment_id': source['id'], 'case_id': source['case_id'], 'sha256': source['sha256'], 'processor': VERSION}
+    return 'Texto do documento analisado localmente', actor, {'analysis_id': entry['id'], 'attachment_id': source['id'], 'case_id': source['case_id'], 'sha256': source['sha256'], 'processor': VERSION, 'method': entry.get('method', 'literal')}
 
 
 def review(state, data):
@@ -148,14 +158,18 @@ def review(state, data):
     require(outcome != 'accepted' or (entry.get('extraction_status', 'complete') == 'complete' and bool(entry['text'].strip())),
             'Extração inconclusiva não pode ser aceita como fonte. Consulte o original ou rejeite a análise.')
     require(data.get('confirmed') is True, 'Confirme a revisão humana do texto e sua pertinência ao caso.')
+    if outcome == 'accepted':
+        require(not any(row['attachment_id'] == entry['attachment_id'] and row['status'] == 'accepted' and row['id'] != entry['id'] for row in state.get('document_analyses', [])), 'Já existe uma fonte aceita para este arquivo; consulte a revisão preservada.')
+        if entry.get('method') == 'ocr':
+            require(data.get('confirmed_ocr') is True, 'Confira cada trecho reconhecido com a imagem original antes de aceitar OCR.')
     entry['status'] = outcome
-    entry['review'] = {'actor': actor, 'reason': reason, 'at': datetime.now(timezone.utc).isoformat(timespec='milliseconds')}
+    entry['review'] = {'actor': actor, 'reason': reason, 'ocr_checked': entry.get('method') == 'ocr' and data.get('confirmed_ocr') is True, 'at': datetime.now(timezone.utc).isoformat(timespec='milliseconds')}
     entry['revision'] = revision(entry)
     return 'Revisão humana do documento registrada', actor, {'analysis_id': entry['id'], 'case_id': entry['case_id'], 'attachment_id': entry['attachment_id'], 'outcome': outcome, 'reason': reason}
 
 
 def sources(state, case_id):
     # Maximum three accepted documents, transparent partial context handled by caller.
-    return [{'id': row['attachment_id'], 'source': 'Texto sintético revisado por pessoa',
+    return [{'id': row['attachment_id'], 'source': 'Texto reconhecido por OCR local, conferido por pessoa; pode conter erros' if row.get('method') == 'ocr' else 'Texto sintético revisado por pessoa',
              'detail': row['text'], 'revision': row['revision'], 'sha256': row['sha256']}
             for row in state.get('document_analyses', []) if row['case_id'] == case_id and row['status'] == 'accepted']

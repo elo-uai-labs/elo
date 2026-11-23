@@ -49,7 +49,7 @@ def context_for(state, case_id):
             source["truncated"] = True
             truncated = True
     return {"case_id": case["id"], "sources": sources, "partial": truncated or len(actions) > 3 or len(reviewed_documents) > 3,
-            "scope": "Somente fontes exibidas deste caso, com até três planos, três textos TXT aceitos por revisão humana e trechos de até 700 caracteres. Binários e textos não revisados não são enviados à IA. Esta consulta não altera decisões, riscos, maturidade ou planos."}
+            "scope": "Somente fontes exibidas deste caso, com até três planos, três documentos com texto aceito por revisão humana, incluindo OCR revisado e trechos de até 700 caracteres. Binários e textos não revisados não são enviados à IA. Esta consulta não altera decisões, riscos, maturidade ou planos."}
 
 
 def prepare(state, data):

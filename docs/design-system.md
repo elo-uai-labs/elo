@@ -33,3 +33,7 @@ O catálogo `componentMeta` da versão 4.10.1 não oferece componente de arquivo
 ## Importação e documentos · 23/11/2026
 
 Prévia CSV/XLSX usa p-select/p-select-option para tabela, aba e mapeamento; p-checkbox para confirmação sintética; p-button para seleção/validação/gravação; p-tag e p-text-list para erros e contagens. Leitura de documentos usa p-accordion, p-text e p-inline-notification, preservando página/célula e revisão humana. Correlação usa os mesmos componentes oficiais. Nenhuma alteração na tipografia, folha completa, partials ou internos dos componentes. Seletores de arquivo permanecem ocultos, acionados por p-button.
+
+## Reconhecimento OCR
+
+Ação explícita por `p-button` oficial, estado por `p-tag`/`p-inline-notification`, metadados e regiões por `p-text`/`p-text-list`, e conferência adicional por `p-checkbox`. A aceitação exige confirmação específica no servidor. As coordenadas percentuais ajudam a localizar o trecho na página/imagem original. A tipografia e as variantes oficiais permanecem inalteradas.
