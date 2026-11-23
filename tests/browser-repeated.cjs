@@ -9,8 +9,9 @@ exports.runRepeated = async (browser, errors, baseUrl) => {
   const imported=await page.request.post(`${baseUrl}/api/import`,{data:{actor:'Analista tipologia sintética',synthetic:true,dataset:{employees:[],suppliers:[],contracts:[contract]}}});
   assert.ok(imported.ok());
   await page.goto(`${baseUrl}/#inteligencia`);
+  const detected = page.waitForResponse(r=>r.url().endsWith('/api/detect'));
   await page.getByTestId('detect-repeated').click();
-  await page.waitForFunction(() => !document.querySelector('[data-testid="detect-repeated"]') || document.querySelector('[data-testid="detect-repeated"]').disabled);
+  assert.ok((await detected).ok());
   const state=await (await page.request.get(`${baseUrl}/api/state`)).json();
   const cases=state.cases.filter(c=>c.rule.id==='repeated-contract-profile');
   assert.ok(cases.some(c=>c.records.contract.id==='CTR-1042'));
