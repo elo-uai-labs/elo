@@ -883,7 +883,7 @@ function operationsPanel() {
     <p-text data-testid="operations-sla">${ops.sla.percent === null ? 'Sem amostra' : `${Number(ops.sla.percent).toLocaleString('pt-BR')}%`} · ${ops.sla.on_time}/${ops.sla.evaluated} concluídos no prazo · ${ops.sla.missing_timestamp} sem data avaliável</p-text>
     <p-text size="sm">${escape(ops.sla.definition)}</p-text>
     <p-heading tag="h3" size="md">Recorrência de sinais</p-heading><p-text size="sm">${escape(ops.recurrence.definition)}</p-text>
-    ${ops.recurrence.groups.length ? `<p-text-list>${ops.recurrence.groups.slice(0, 20).map((row) => `<p-text-list-item>${escape(row.rule_id)} · ${escape(row.supplier_id)} · ${row.distinct_contracts} contratos distintos: ${escape(row.contract_ids.join(', '))}</p-text-list-item>`).join('')}</p-text-list><p-text size="sm">Exibindo até 20 de ${ops.recurrence.groups.length} grupos.</p-text>` : '<p-text size="sm">Nenhum fornecedor com sinal da mesma regra em contratos distintos.</p-text>'}
+    ${ops.recurrence.groups.length ? `<p-text-list>${ops.recurrence.groups.slice(0, 20).map((row) => `<p-text-list-item>${escape(row.rule_id)} · ${escape(row.supplier_id)} · ${row.distinct_contracts} contratos distintos: ${escape(row.contract_ids.slice(0, 20).join(', '))}${row.contract_ids.length > 20 ? ` · mais ${row.contract_ids.length - 20} IDs (lista completa no pacote de auditoria)` : ''}</p-text-list-item>`).join('')}</p-text-list><p-text size="sm">Exibindo até 20 de ${ops.recurrence.groups.length} grupos.</p-text>` : '<p-text size="sm">Nenhum fornecedor com sinal da mesma regra em contratos distintos.</p-text>'}
     <p-text size="xs">Referência ${escape(workSummary.today)} · ${escape(workSummary.timezone)} · ${escape(workSummary.as_of)}</p-text></div>`);
 }
 

@@ -26,3 +26,5 @@ Esta entrega amplia a operação sintética existente com avisos dentro do Elo, 
 ## Dependências preservadas
 
 Metas e responsáveis por SLA corporativo, fonte oficial de calendário/feriados, notificações externas e comprovantes de entrega, capacidade sustentada e validação multiusuário no ambiente da CAIXA continuam dependentes de definição e autorização. A lógica atual não promete alertas com a aplicação fechada. Papéis, revisão independente e controle de concorrência existentes devem continuar sendo verificados na suíte canônica do projeto.
+
+Para manter a leitura utilizável, a recorrência mostra até 20 grupos e até 20 IDs por grupo, com a quantidade adicional explicitada. Os registros completos continuam no pacote de auditoria.
