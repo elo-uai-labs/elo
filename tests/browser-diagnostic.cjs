@@ -175,6 +175,11 @@ async function runDiagnostic(browser, pageErrors, baseUrl) {
       await settle(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: path.join(output, `${mode}-diagnostic-groups.png`) });
+      const groupPanel = page.getByTestId(`correlation-${contract}`);
+      const selectedResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/state' && new URL(response.url()).searchParams.get('case_id') === group.signals[0].case_id);
+      await groupPanel.getByRole('button', {name: `Analisar ${group.signals[0].case_id}`, exact: true}).click();
+      assert.equal((await (await selectedResponse).json()).case.id, group.signals[0].case_id);
+      await page.waitForFunction(() => document.querySelector('#view').getAttribute('aria-busy') === 'false');
       run.correlation = group;
       await page.goto(`${baseUrl}/#visao`);
       await page.getByTestId('capabilities').getByRole('heading').click();
