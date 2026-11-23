@@ -29,3 +29,18 @@ Sem migração/schema/índices novos. Os limites de volume e número de lotes ex
 - `backend/monitoring.py`: `60c975432dc4f3bcaa509f54f09691eeaff1019827b1b23f752a92517eb61ef0`.
 - `backend/domain.py`: `f943739f52d1ae05fb67daf6cf594f29c7269ed298af8958409d1dd9c6620214`.
 - `backend/tests/test_synthetic_source.py`: `d0ffdf133ef0b07d98a9ec3657ac336c540c1eed2ad730d3307cd0cf68cfba3c`.
+
+## Complemento DBA · interrupção no meio da transação
+
+Revisados `a4ef5f943eda687f2148962f89d32349b89dd966` e `e6ed7ff972bba613c8edd086d1f17d21d3784189`, exclusivamente `scripts/trl-crash-transaction.py`. **Aprovado no ensaio delimitado**, sem alteração no runtime. O empacotador presente nos mesmos commits não pertence ao escopo DBA deste complemento.
+
+O processo pai cria banco novo em TemporaryDirectory; o launcher normal não aceita caminho externo. O modo worker exige diretório diretamente sob a pasta temporária com prefixo do ensaio, nome fixo do banco/marcador, arquivo existente e ausência de links nos dois arquivos. Essa restrição é proteção de uso do harness, não sandbox contra um operador local malicioso. Nenhum banco manual é aberto.
+
+A subclasse test-only registra função SQLite de pausa. Um trigger BEFORE UPDATE de workflow chama essa função após o INSERT de audit executado por Store.apply e antes do commit. O marcador é gravado dentro da função e o pai exige marcador existente e worker ainda vivo antes de SIGKILL. Assim, a interrupção acontece dentro da transação de escrita, diferentemente da interrupção quiescente do protocolo operacional. O cleanup encerra também o worker quando a prova falha.
+
+Reexecutei independentemente `.venv/bin/python3 scripts/trl-crash-transaction.py`: passou em0,110s. A reabertura recuperou exatamente o snapshot anterior (hashes idênticos), SQLite integrity_check=ok; removido somente o trigger de teste, repetição criou exatamente um trabalho e um evento com cadeia válida. A inserção não confirmada de auditoria não sobreviveu separada do workflow. Evidência `output/validation/trl5/crash-transaction.json`.
+
+Limites preservados: SIGKILL de processo em SQLite local com trigger controlado não equivale a falha elétrica/disco, corrupção do sistema de arquivos, atomicidade conjunta da resposta HTTP e do commit ou garantia produtiva de RPO. A prova complementa a consistência transacional sem afirmar disponibilidade corporativa.
+
+- `scripts/trl-crash-transaction.py`: `ccc1fe39e0220937e502eceed1c1d12df571bb7488978f9b6e0e243d78cc2e7b`.
+- `backend/domain.py`: `f943739f52d1ae05fb67daf6cf594f29c7269ed298af8958409d1dd9c6620214`.
