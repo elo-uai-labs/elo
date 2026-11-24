@@ -13,3 +13,6 @@ __pycache__/
 !.env.example
 media/pitch/.hyperframes/
 media/pitch/renders/
+
+# Pitch production stays local; application code is published separately.
+media/pitch*/
